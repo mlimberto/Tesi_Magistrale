@@ -3,7 +3,7 @@
 //
 // Test 1
 //
-//
+// Test per parametrizzazione forma del cuore , esempio di problema forward
 
 load "iovtk"
 

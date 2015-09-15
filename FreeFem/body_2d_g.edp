@@ -1,12 +1,12 @@
 // Matteo Limberto
 // 10-9-15
 //
-// Test 2 : we stop using the level set and add some control
+// Test 3 : we stop using the level set and add some control
 //
-// Now we use varf to build the matrices and vectors
+// use varf to build the matrices and vectors
 //
 // The zero mean condition is enforced using a Lagrange multiplier
-// Stability issues need to be investigated
+
 
 load "iovtk"
 
