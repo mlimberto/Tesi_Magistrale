@@ -11,62 +11,8 @@
 load "iovtk"
 // load "Element_P3"
 
-/////////////////////////////
-///////  PARAMETERS  ////////
-/////////////////////////////
-
-// Define the geometry coefficients : a simplified 2D heart-torso model
-
-real bodyC = 2.0 ; // Eccentricity of the torso
-real bodyR = 2.0 ; // Radius of the torso
-
-real heartC = 1.5 ; // heart eccentricity
-real heartR = 1.0 ; // heart radius
-
-real ventD = 0.6; // distance of ventricle center from axis
-real ventC = 1.0; // ventricle eccentricity
-real ventR = 0.25; // ventricle radius
-
-// Physical parameters
-
-real Mi = 3.0 ; // healthy internal conductivity 
-real Me = 2.0 ; // healthy external conductivity
-
-real tMi = 1.0 ; // ischemic internal conductivity 
-real tMe = 1.0 ; // ischemic external conductivity
-
-real M0 = 1.0 ; // torso conductivity
-
-real tau = 0.3 ; // sharpness of ischemia
-
-real ischVtrans = -60 ; // trans-membrane potentials during resting phase
-real healthyVtrans = -90;
-
-// Ischemia location
-real ischX = 0.0 ; // x
-real ischY = 0.4 ; // y
-real ischR = 0.4 ; // R
-real ischC = 1.0 ; // eccentricity
-
-
-/////////////////////////////
-///////     MESH    /////////
-/////////////////////////////
-
-// Build the mesh
-cout << "Buiding the mesh ... " << endl;
-
-int dH = 0;
-int dT = 1;
-
-border body(t = 0 , 2*pi ) {x = bodyR*bodyC*cos(t) ; y = bodyR*sin(t) ; label = dT ;} ; 
-border heart(t = 0 , 2*pi ) {x = heartR*heartC*cos(t) ; y = heartR*sin(t) ; label = dH ;} ; 
-border lvent(t = 0 , 2*pi ) {x = ventR*ventC*cos(t) - ventD ; y = ventR*sin(t) ; label = dH ;} ;
-border rvent(t = 0 , 2*pi ) {x = ventR*ventC*cos(t) + ventD ; y = ventR*sin(t) ; label = dH ;} ;
-
-mesh Th = buildmesh(body(100) + heart(200) + lvent(-40) + rvent(-40) ) ;
-	// plot(body(40) + heart(30) + lvent(-10) + rvent(-10) ,wait=1);
-	plot(Th, wait=1, cmm = "mesh of the domain");
+// Include parameters and mesh
+include "body_parameters.edp"
 
 
 ////////////////////////////////////////
@@ -74,18 +20,7 @@ mesh Th = buildmesh(body(100) + heart(200) + lvent(-40) + rvent(-40) ) ;
 ////////////////////////////////////////
 
 // Finite element spaces
-fespace Ph(Th,P0);
-// fespace Vh(Th,P1);
 fespace V2h(Th,P2); // P1,P2,P3...
-
-// Get information on regions 
-Ph reg = region ;
-	// plot(reg, fill = 1 , wait = 1, value = 1);
-
-int regH = reg(0,0);
-int regT = reg(0,heartR*1.01);
-	// cout << regH << endl;
-	// cout << regT << endl;
 
 // variational formulations
 V2h Mlhs,Mrhs,vtrans;
@@ -94,6 +29,21 @@ varf a(uh,tuh) = int2d(Th)(Mlhs*(dx(uh)*dx(tuh) + dy(uh)*dy(tuh))) ;
 varf b(uh,tuh) = - int2d(Th)(Mrhs*( dx(tuh)*dx(vtrans) + dy(tuh)*dy(vtrans) ) ) ;
 varf c(uh,tuh) = int2d(Th)(tuh) ;
 
+////////////////////////////////////////
+//////      REGION FUNCTION      ///////
+////////////////////////////////////////
+
+// Patch the region function to account for the internal boundary
+V2h reg = region ;
+	 plot(reg, fill = 1 , wait = 1, value = 1);
+
+int regH = reg(0,0); cout << "regH : " << regH << endl;
+int regT = reg(0,heartR*1.01); cout << "regT : " << regT << endl;
+
+varf bd(u,v) = int2d(Th)(u*v) + on(dH , u = 1.) ;
+real[int] Bd = bd(0,V2h) ;
+reg[] = Bd ? regH : reg[] ;
+
 
 ////////////////////////////////////////
 ///     SOLVE FOR TARGET SOLUTION    ///
@@ -101,99 +51,73 @@ varf c(uh,tuh) = int2d(Th)(tuh) ;
 
 cout << "Solving the forward problem for a known ischemia" << endl;
 
+// Define an ischemia 
 V2h LS = x ; // level set for the ischemic region
 V2h ischRegion = (LS(x,y) <= 0)*(reg == regH) ;
-	plot(Th,ischRegion,wait=1,nbiso=3,value = 1,fill=1, cmm = "Infarcted region location");
+	// plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
 
 // Compute the transmembrane potential (source term)
 V2h G = (LS > tau) + 0.5 *(1 + LS/tau + sin(pi*LS/tau)/pi)*(abs(LS) < tau);
+	V2h targetW =  1. - G ;
+	// plot(targetW,wait=1,value = 1,fill=1, cmm = "Smoothed region function");
 
 vtrans = ischVtrans*(1-G) + healthyVtrans*G ;
+	// V2h gvtrans = sqrt( dx(vtrans)*dx(vtrans) + dy(vtrans)*dy(vtrans)) ;
+	// plot(gvtrans,wait=1,value = 1,fill=1, cmm = "Gradient of the transmembrane potential");
+
 
 Mlhs = (Mi + Me )*G*(reg == regH) + (tMi + tMe )*(1-G)*(reg == regH) + M0*(reg == regT) ;
 Mrhs = Mi*G*(reg == regH) + tMi*(1-G)*(reg == regH) ;
-	// plot(Mlhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M lhs", dim = 3 );
-	// plot(Mrhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs", dim = 3 );
+	// plot(Mlhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M lhs", dim = 2 );
+	// plot(Mrhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs", dim = 2 );
 
 // Build the matrices and solve the problem
 matrix A = a(V2h,V2h) ;
 real[int] C = c(0,V2h) ;
+
 real[int] B = b(0,V2h) ;
+real[int] rhs = [B,0];
 
 matrix TOTAL = [ [ A ,  C ] ,
 				 [ C' , 0 ] ];
 
 set(TOTAL, solver = UMFPACK) ;
 
-V2h zd;
-
-real[int] rhs = [B,0];
-// cout <<"ndof : " << V2h.ndof << endl;
-// cout <<"size of rhs : " << rhs.n << endl;
 real[int] sol(V2h.ndof + 1);
-// cout <<"size of solution : " << sol.n << endl;
-
 sol= TOTAL^-1*rhs ; 
-zd[] = sol(0 : V2h.ndof);
 
-// plot(uh,wait=1,fill=1,nbiso = 20,dim=2 , cmm = "Target solution");
-plot(zd,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Target solution");
+V2h zd;
+zd[] = sol(0 : V2h.ndof);
+	plot(zd,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Target solution");
+
 cout << "Lagrange multiplier : " << sol[V2h.ndof] << endl;
-real meanValue = int2d(Th)(zd) / int2d(Th)(1.0) ;  // check that the mean value of the solution is 0
-cout <<"Mean value of solution zd : " << meanValue << endl;
+cout << "Mean value of solution zd : " << int2d(Th)(zd) / int2d(Th)(1.0) << endl;
 
 
 ////////////////////////////////////////
 ///     SOLVE THE INVERSE PROBLEM    ///
 ////////////////////////////////////////
+
 cout << "Setting up the inverse problem ..." << endl;
 
-// Setup the control function
-real gamma = 4.0;
-V2h g0 = 1.25*exp(-gamma * ((x+0.6)*(x+0.6) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
-cout << "Value : " << g0(-0.85 , 0) << endl;
-V2h w = g0*g0 ; // indeed we use g^2 as a control function
-// V2h w = (reg == regH) * (heartR*heartC - x  )/(2*heartR*heartC);
-	plot(w,wait=1 , cmm = "control function w = g^2" , fill =1 );
+// Create an initial guess for the control function
+real gamma = 2.7;
+V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
+cout << "Value : " << w(-0.85 , 0) << endl;
+	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
 
-// Build lhs and rhs of the equation
-V2h stateRHS = -1. * (ischVtrans - healthyVtrans )*tMi ;
-	plot(stateRHS, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "stateRHSx", dim = 3 );
-V2h stateLHS =( (Mi + Me) + (tMi + tMe - Mi - Me)*w )*(reg == regH) + M0*(reg == regT) ; // this should generally be a tensor
-	plot(stateLHS, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "stateLHS", dim = 3 );
+	// V2h gw = sqrt( dx(w)*dx(w) + dy(w)*dy(w)) * (reg == regH);
+	// plot(gw,wait =1 , cmm = "gradient of the control function w" , fill =1 ,nbiso = 30 );
 
-// Variational formulations
-varf astate(uh,tuh) = int2d(Th)(stateLHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
-varf bstate(uh,tuh) = int2d(Th)(stateRHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
 
-varf aadj(uh,tuh) = int2d(Th)(stateLHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
-varf badj(uh,tuh) = int1d(Th,dT)(-1.*(uh)*tuh) ; // controlla bene!!!
+// Initialize vectors for state and adjoint problem
 
-V2h uh,ph,gradw;
+real[int] Bst(V2h.ndof)  ; // initialize rhs
+real[int] solState(V2h.ndof + 1); // initialize solution  
 
-// varf badj(uh,tuh) = 
+real[int] Badj(V2h.ndof) ; // initialize rhs
+real[int] solAdj(V2h.ndof + 1); // initialize solution
 
-// Matrices and vectors for the state problem
-matrix Astate = astate(V2h,V2h) ;
-matrix Bstate = bstate(V2h,V2h) ;
-real[int] Bst(V2h.ndof)  ;
-real[int] Cstate = c(0,V2h) ;
-
-matrix TOTALstate = [ [ Astate  ,  Cstate ] ,
-				 	  [ Cstate' ,  0      ] ];
-
-set(TOTALstate, solver = UMFPACK) ;
-
-// Matrices and vectors for the adjoint problem
-matrix Aadj = aadj(V2h,V2h) ;
-matrix Badjoint = badj(V2h,V2h) ;
-real[int] Badj(V2h.ndof) ;
-real[int] Cadj = c(0,V2h) ;
-
-matrix TOTALadj = [ [ Aadj  ,  Cadj ] ,
-			 	    [ Cadj' ,  0    ] ];
-
-set(TOTALadj, solver = UMFPACK) ;
 
 // Computation of the gradient of w
 real beta = 0.1 ; // coefficiente di penalizzazione
@@ -201,15 +125,32 @@ real beta = 0.1 ; // coefficiente di penalizzazione
 varf agrad(gw,tgw) = int2d(Th,regH)(gw*tgw + dx(gw)*dx(tgw) + dy(gw)*dy(tgw) ) ;
 
 
-// Loop to solve the state then adjoint problem
+// ITERATIVE LOOP
 
-real[int] solState(V2h.ndof + 1); 
-real[int] solAdj(V2h.ndof + 1);
+int Nmax = 1 ; 
 
-int Nmax = 10;
+V2h uh,ph,gradw;
+V2h stateLHS , stateRHS ;
 
 for (int i=0 ; i<Nmax ; ++i)
 {
+	// Build coefficients for the state problem
+	V2h stateLHS =( (Mi + Me) + (tMi + tMe - Mi - Me)*w )*(reg == regH) + M0*(reg == regT) ; // this should generally be a tensor
+	V2h stateRHS = -1. * (ischVtrans - healthyVtrans )*Mi ; 
+
+	// Build the matrix for the state problem
+	varf astate(uh,tuh) = int2d(Th)(stateLHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
+	varf bstate(uh,tuh) = int2d(Th)(stateRHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
+
+	matrix Astate = astate(V2h,V2h) ;
+	matrix Bstate = bstate(V2h,V2h) ;
+	real[int] Cstate = c(0,V2h) ;
+
+	matrix TOTALstate = [ [ Astate  ,  Cstate ] ,
+				 	  	  [ Cstate' ,  0      ] ];
+
+	set(TOTALstate, solver = UMFPACK) ;
+	
 	// Build rhs for the state system
 	Bst.resize(V2h.ndof) ;
 	Bst = Bstate * w[]	;
@@ -218,6 +159,21 @@ for (int i=0 ; i<Nmax ; ++i)
 	// Solve the state problem
 	solState = TOTALstate^-1*Bst ;
 	uh[] = solState(0 : V2h.ndof ) ;
+
+	plot(uh,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Solution for the state problem");
+
+	// Build the matrix for the adjoint problem
+	varf aadj(uh,tuh) = int2d(Th)(stateLHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
+	varf badj(uh,tuh) = int1d(Th,dT)(-1.*(uh)*tuh) ; 
+
+	matrix Aadj = aadj(V2h,V2h) ;
+	matrix Badjoint = badj(V2h,V2h) ;
+	real[int] Cadj = c(0,V2h) ;
+
+	matrix TOTALadj = [ [ Aadj  ,  Cadj ] ,
+			 	    	[ Cadj' ,  0    ] ];
+
+	set(TOTALadj, solver = UMFPACK) ;
 
 	// Build rhs for the adjoint problem
 	Badj.resize(V2h.ndof) ;
@@ -229,50 +185,49 @@ for (int i=0 ; i<Nmax ; ++i)
 	solAdj = TOTALadj^-1*Badj ;
 	ph[] = solAdj(0 : V2h.ndof ) ;
 
-	// plot(uh,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Solution for the state problem");
-	// plot(ph,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Solution for the adjoint problem");
+	plot(ph,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Solution for the adjoint problem");
 
 	// Compute gradient of w
-	varf bgrad(gw,tgw) = int2d(Th,regH)(beta*( dx(w)*dx(tgw) + dy(w)*dy(tgw) ) )
-				   + int2d(Th,regH)(beta*( w*tgw ) )
-				   + int2d(Th,regH)( (tMi + tMe - Mi - Me )*tgw*( dx(uh)*dx(ph) + dy(uh)*dy(ph) ) )
-				   + int2d(Th,regH)( (ischVtrans - healthyVtrans )*tMi*( dx(tgw)*dx(ph) + dy(tgw)*dy(ph) ) )
-				   ;
+	// varf bgrad(gw,tgw) = int2d(Th,regH)(beta*( dx(w)*dx(tgw) + dy(w)*dy(tgw) ) )
+				   // + int2d(Th,regH)(beta*( w*tgw ) )
+				   // + int2d(Th,regH)( (tMi + tMe - Mi - Me )*tgw*( dx(uh)*dx(ph) + dy(uh)*dy(ph) ) )
+				   // + int2d(Th,regH)( (ischVtrans - healthyVtrans )*tMi*( dx(tgw)*dx(ph) + dy(tgw)*dy(ph) ) )
+				   // ;
 
-	matrix Agrad = agrad(V2h,V2h, solver = GMRES) ;
-	real[int] Bgrad = bgrad(0,V2h) ;
+	// matrix Agrad = agrad(V2h,V2h, solver = GMRES) ;
+	// real[int] Bgrad = bgrad(0,V2h) ;
 
-	gradw[] = Agrad^-1 * Bgrad ;
+	// gradw[] = Agrad^-1 * Bgrad ;
 
 	// plot(gradw,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Gradient of w");	
 
 	// Evaluate objective function
 
-	real J = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
-		+ int2d(Th,regH)( beta*(dx(uh)*dx(uh) + dy(w)*dy(w)) )
-		+ int2d(Th,regH)(beta*uh*uh) ;
+	// real J = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
+		// + int2d(Th,regH)( beta*(dx(uh)*dx(uh) + dy(w)*dy(w)) )
+		// + int2d(Th,regH)(beta*uh*uh) ;
 
-	cout << "Objective : " << J << endl;
+	// cout << "Objective : " << J << endl;
 	// Update w 
 
-	w = w + gradw*0.005 ;
+	// w = w + gradw*0.005 ;
 
 	// plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
 
 	// Projection (to keep the control bounded between 0 and 1)
-	for (int j=0 ; j < V2h.ndof ; ++j) 
-	{
-		if (w[](j) >= 1.0) 
-			w[](j) = 1.0;
+	// for (int j=0 ; j < V2h.ndof ; ++j) 
+	// {
+		// if (w[](j) >= 1.0) 
+			// w[](j) = 1.0;
 
-		if (w[](j) <= 0.0) 
-			w[](j) = 0.0;
+		// if (w[](j) <= 0.0) 
+			// w[](j) = 0.0;
 		
-	}
+	// }
 
-	V2h error = abs(w - ischRegion) ;
+	// V2h error = abs(w - ischRegion) ;
 
-	plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
+	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
 	// plot(w,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "new w after projection");	
 
 

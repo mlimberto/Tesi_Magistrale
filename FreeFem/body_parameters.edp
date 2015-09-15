@@ -1,0 +1,79 @@
+// Matteo Limberto
+// 15-9-15
+//
+//
+//
+// In this file the parameters are defined
+// and the mesh is built
+
+
+/////////////////////////////
+///////  PARAMETERS  ////////
+/////////////////////////////
+
+// Define the geometry coefficients : a simplified 2D heart-torso model
+
+real bodyC = 2.0 ; // Eccentricity of the torso
+real bodyR = 2.0 ; // Radius of the torso
+
+real heartC = 1.5 ; // heart eccentricity
+real heartR = 1.0 ; // heart radius
+
+real ventD = 0.6; // distance of ventricle center from axis
+real ventC = 1.0; // ventricle eccentricity
+real ventR = 0.25; // ventricle radius
+
+// Physical parameters
+
+// potentials are measured in mV
+// conductivites are measured in S/cm
+
+real Mi = 3.0 ; // healthy internal conductivity 
+real Me = 2.0 ; // healthy external conductivity
+
+real tMi = 3.0 ; // ischemic internal conductivity 
+real tMe = 1.0 ; // ischemic external conductivity
+
+real M0 = 0.03 ; // torso conductivity
+
+real tau = 0.3 ; // sharpness of ischemia
+
+real ischVtrans = -60 ; // trans-membrane potentials during resting phase
+real healthyVtrans = -90;
+
+// Ischemia location
+
+real ischX = 0.0 ; // x
+real ischY = 0.4 ; // y
+real ischR = 0.4 ; // R
+real ischC = 1.0 ; // eccentricity
+
+
+/////////////////////////////
+///////     MESH    /////////
+/////////////////////////////
+
+// Build the mesh
+cout << "Buiding the mesh ... " << endl;
+
+int dH = 0;
+int dT = 1;
+
+border body(t = 0 , 2*pi ) {x = bodyR*bodyC*cos(t) ; y = bodyR*sin(t) ; label = dT ;} ; 
+border heart(t = 0 , 2*pi ) {x = heartR*heartC*cos(t) ; y = heartR*sin(t) ; label = dH ;} ; 
+border lvent(t = 0 , 2*pi ) {x = ventR*ventC*cos(t) - ventD ; y = ventR*sin(t) ; label = dH ;} ;
+border rvent(t = 0 , 2*pi ) {x = ventR*ventC*cos(t) + ventD ; y = ventR*sin(t) ; label = dH ;} ;
+
+mesh Th = buildmesh(body(100) + heart(200) + lvent(-40) + rvent(-40) ) ;
+	// plot(body(40) + heart(30) + lvent(-10) + rvent(-10) ,wait=1);
+	plot(Th, wait=1, cmm = "mesh of the domain");
+
+
+
+
+
+
+
+
+
+
