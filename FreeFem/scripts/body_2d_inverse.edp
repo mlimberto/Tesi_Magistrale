@@ -133,7 +133,7 @@ real beta = 0.1 ; // coefficiente di penalizzazione
 
 // ITERATIVE LOOP
 
-int Nmax = 50 ; 
+int Nmax = 5 ; 
 
 real[int] Js(Nmax);
 
@@ -263,7 +263,7 @@ for (int i=0 ; i<Nmax ; ++i)
 
 // Export objective function evaluations
 {
-	ofstream f("export/J.txt");
+	ofstream f("../export/J.txt");
 	for (int j=0;j<Nmax;++j)
 		f << j << " " << Js[j] << endl;
 }
