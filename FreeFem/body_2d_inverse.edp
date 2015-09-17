@@ -20,7 +20,7 @@ include "body_parameters.edp"
 ////////////////////////////////////////
 
 // Finite element spaces
-fespace V2h(Th,P2); // P1,P2,P3...
+fespace V2h(Th,P1); // P1,P2,P3...
 
 // variational formulations
 V2h Mlhs,Mrhs,vtrans;
@@ -131,7 +131,7 @@ real beta = 0.1 ; // coefficiente di penalizzazione
 
 int Nmax = 1 ; 
 
-V2h uh,ph,gradw1,gradw2;
+V2h uh,ph,gradw;
 V2h stateLHS , stateRHS ;
 
 for (int i=0 ; i<Nmax ; ++i)
@@ -196,47 +196,52 @@ for (int i=0 ; i<Nmax ; ++i)
 	plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
 
 	// Compute gradient of w
-	// varf bgrad(gw,tgw) = int2d(Th,regH)(beta*( dx(w)*dx(tgw) + dy(w)*dy(tgw) ) )
+	varf agrad(u,v) = int2d(Th,regH)(u*v) + int2d(Th,regH)( dx(u)*dx(v) + dy(u)*dy(v) ) ;
+
+	varf bgrad(gw,tgw) = // int2d(Th,regH)(beta*( dx(w)*dx(tgw) + dy(w)*dy(tgw) ) )
 				   // + int2d(Th,regH)(beta*( w*tgw ) )
-				   // + int2d(Th,regH)( (tMi + tMe - Mi - Me )*tgw*( dx(uh)*dx(ph) + dy(uh)*dy(ph) ) )
-				   // + int2d(Th,regH)( (ischVtrans - healthyVtrans )*tMi*( dx(tgw)*dx(ph) + dy(tgw)*dy(ph) ) )
-				   // ;
+				   int2d(Th,regH)( (tMi + tMe - Mi - Me )*tgw*( dx(uh)*dx(ph) + dy(uh)*dy(ph) ) )
+				   + int2d(Th,regH)( (ischVtrans - healthyVtrans )*tMi*( dx(tgw)*dx(ph) + dy(tgw)*dy(ph) ) )
+				   ;
 
-	// matrix Agrad = agrad(V2h,V2h, solver = GMRES) ;
-	// real[int] Bgrad = bgrad(0,V2h) ;
+	matrix Agrad = agrad(V2h,V2h, solver = GMRES) ;
+	real[int] Bgrad = bgrad(0,V2h) ;
 
-	// gradw[] = Agrad^-1 * Bgrad ;
+	gradw[] = Agrad^-1 * Bgrad ;
 
-	// plot(gradw,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Gradient of w");	
+	gradw = beta*w + gradw ; // aggiungi parte dovuta alla penalizzazione
+
+	plot(gradw,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Gradient of w");	
 
 	// Evaluate objective function
 
-	// real J = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
-		// + int2d(Th,regH)( beta*(dx(uh)*dx(uh) + dy(w)*dy(w)) )
-		// + int2d(Th,regH)(beta*uh*uh) ;
+	real J = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
+		+ int2d(Th,regH)( beta*(dx(uh)*dx(uh) + dy(w)*dy(w)) )
+		+ int2d(Th,regH)(beta*uh*uh) ;
 
-	// cout << "Objective : " << J << endl;
+	cout << "Objective : " << J << endl;
+
 	// Update w 
 
-	// w = w + gradw*0.005 ;
+	w = w - gradw*0.01 ;
+	w = w*(reg == regH);
 
-	// plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
+	plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
 
 	// Projection (to keep the control bounded between 0 and 1)
-	// for (int j=0 ; j < V2h.ndof ; ++j) 
-	// {
-		// if (w[](j) >= 1.0) 
-			// w[](j) = 1.0;
+	for (int j=0 ; j < V2h.ndof ; ++j) 
+	{
+		if (w[](j) >= 1.0) 
+			w[](j) = 1.0;
 
-		// if (w[](j) <= 0.0) 
-			// w[](j) = 0.0;
-		
-	// }
+		if (w[](j) <= 0.0) 
+			w[](j) = 0.0;	
+	}
 
 	// V2h error = abs(w - ischRegion) ;
 
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
-	// plot(w,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "new w after projection");	
+	plot(w,wait=1,fill=1,nbiso = 20,dim=2 , cmm = "new w after projection");	
 
 	V2h errorState = abs(uh - zd) ;
 	plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;
