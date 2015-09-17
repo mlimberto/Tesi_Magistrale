@@ -8,7 +8,7 @@
 // The zero mean condition is enforced using a Lagrange multiplier
 // Stability issues need to be investigated (inf-sup condition)
 
-load "iovtk"
+// load "iovtk"
 // load "Element_P3"
 
 // Include parameters and mesh
@@ -133,7 +133,9 @@ real beta = 0.1 ; // coefficiente di penalizzazione
 
 // ITERATIVE LOOP
 
-int Nmax = 150 ; 
+int Nmax = 50 ; 
+
+real[int] Js(Nmax);
 
 V2h uh,ph,gradw;
 V2h stateLHS , stateRHS ;
@@ -221,15 +223,17 @@ for (int i=0 ; i<Nmax ; ++i)
 
 	// Evaluate objective function
 
-	real J = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
+	Js[i] = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
 		+ int2d(Th,regH)( beta*(dx(w)*dx(w) + dy(w)*dy(w)) )
 		+ int2d(Th,regH)(beta*w*w) ;
 
-	cout << "Iteration " << i << ": Objective = " << J << endl;
+
+
+	cout << "Iteration " << i << ": Objective = " << Js[i] << endl;
 
 	// Update w 
 
-	w = w - gradw*0.01 ;
+	w = w - gradw*0.005 ;
 	w = w*(reg == regH);
 
 	// plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
@@ -247,17 +251,22 @@ for (int i=0 ; i<Nmax ; ++i)
 	// V2h error = abs(w - ischRegion) ;
 
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
-	plot(w,wait=0,fill=1,nbiso = 20,dim=2 , cmm = "new w after projection");	
+	plot(w,wait=0,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
 
 	// V2h errorState = abs(uh - zd) ;
 	// plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;
 
 }
 
-// Export
+// Export in VTK format
 // savevtk("export/inverseECG.vtk",Th,G,w,zd,uh,ph) ;
 
-
+// Export objective function evaluations
+{
+	ofstream f("export/J.txt");
+	for (int j=0;j<Nmax;++j)
+		f << j << " " << Js[j] << endl;
+}
 
 
 

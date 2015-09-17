@@ -36,7 +36,7 @@ real tMe = 1.0 ; // ischemic external conductivity
 
 real M0 = 0.03 ; // torso conductivity
 
-real tau = 0.3 ; // sharpness of ischemia
+real tau = 0.2 ; // sharpness of ischemia
 
 real ischVtrans = -60 ; // trans-membrane potentials during resting phase
 real healthyVtrans = -90;
@@ -44,8 +44,8 @@ real healthyVtrans = -90;
 // Ischemia location
 
 real ischX = 0.0 ; // x
-real ischY = 0.6 ; // y
-real ischR = 0.3 ; // R
+real ischY = 0.7 ; // y
+real ischR = 0.5 ; // R
 real ischC = 1.0 ; // eccentricity
 
 
