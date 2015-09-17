@@ -1,0 +1,281 @@
+// Matteo Limberto
+// 14-9-15
+//
+// Test 4 : we try to implement a gradient method 
+//
+// varf are used to build the matrices and vectors
+//
+// The zero mean condition is enforced using a Lagrange multiplier
+// Stability issues need to be investigated (inf-sup condition)
+
+// load "iovtk"
+// load "Element_P3"
+
+// Include parameters and mesh
+include "body_parameters.edp"
+
+
+////////////////////////////////////////
+//////     FUNCTIONAL SETTING     //////
+////////////////////////////////////////
+
+// Finite element spaces
+fespace V2h(Th,P1); // P1,P2,P3...
+
+// variational formulations
+V2h Mlhs,Mrhs,vtrans;
+
+varf a(uh,tuh) = int2d(Th)(Mlhs*(dx(uh)*dx(tuh) + dy(uh)*dy(tuh))) ;
+varf b(uh,tuh) = - int2d(Th)(Mrhs*( dx(tuh)*dx(vtrans) + dy(tuh)*dy(vtrans) ) ) ;
+varf c(uh,tuh) = int2d(Th)(tuh) ; // use to enforce the zero-mean condition with a Lagrange multiplier
+
+////////////////////////////////////////
+//////      REGION FUNCTION      ///////
+////////////////////////////////////////
+
+// Patch the region function to account for the internal boundary
+V2h reg = region ;
+	 // plot(reg, fill = 1 , wait = 1, value = 1);
+
+int regH = reg(0,0); cout << "regH : " << regH << endl;
+int regT = reg(0,heartR*1.01); cout << "regT : " << regT << endl;
+
+varf bd(u,v) = int2d(Th)(u*v) + on(dH , u = 1.) ;
+real[int] Bd = bd(0,V2h) ;
+reg[] = Bd ? regH : reg[] ;
+
+
+////////////////////////////////////////
+///     SOLVE FOR TARGET SOLUTION    ///
+////////////////////////////////////////
+
+cout << "Solving the forward problem for a known ischemia" << endl;
+
+// Define an ischemia 
+
+// V2h LS = x ; // level set for the ischemic region
+V2h LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
+V2h ischRegion = (LS(x,y) <= 0)*(reg == regH) ;
+	plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
+
+// Compute the transmembrane potential (source term)
+V2h G = (LS > tau) + 0.5 *(1 + LS/tau + sin(pi*LS/tau)/pi)*(abs(LS) < tau);
+	// V2h targetW =  1. - G ;
+	// plot(targetW,wait=1,value = 1,fill=1, cmm = "Smoothed region function");
+
+vtrans = ischVtrans*(1-G) + healthyVtrans*G ;
+	// V2h gvtrans = sqrt( dx(vtrans)*dx(vtrans) + dy(vtrans)*dy(vtrans)) ;
+	// plot(gvtrans,wait=1,value = 1,fill=1, cmm = "Gradient of the transmembrane potential");
+
+
+Mlhs = (Mi + Me )*G*(reg == regH) + (tMi + tMe )*(1-G)*(reg == regH) + M0*(reg == regT) ;
+Mrhs = Mi*G*(reg == regH) + tMi*(1-G)*(reg == regH) ;
+	// plot(Mlhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M lhs", dim = 2 );
+	// plot(Mrhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs", dim = 2 );
+
+// Build the matrices and solve the problem
+matrix A = a(V2h,V2h) ;
+real[int] C = c(0,V2h) ;
+
+real[int] B = b(0,V2h) ;
+real[int] rhs = [B,0];
+
+matrix TOTAL = [ [ A ,  C ] ,
+				 [ C' , 0 ] ];
+
+set(TOTAL, solver = UMFPACK) ;
+
+real[int] sol(V2h.ndof + 1);
+sol= TOTAL^-1*rhs ; 
+
+V2h zd;
+zd[] = sol(0 : V2h.ndof);
+	plot(zd,wait=1,fill=1,nbiso = 20,dim=2 , cmm = "Target solution");
+
+cout << "Lagrange multiplier : " << sol[V2h.ndof] << endl;
+cout << "Mean value of solution zd : " << int2d(Th)(zd) / int2d(Th)(1.0) << endl;
+
+
+////////////////////////////////////////
+///     SOLVE THE INVERSE PROBLEM    ///
+////////////////////////////////////////
+
+cout << "Setting up the inverse problem ..." << endl;
+
+// Create an initial guess for the control function
+
+// V2h w = (1-G)*(reg == regH); // this w corresponds to the target solution 
+// real gamma = 3.5;
+// V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
+// V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
+// V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
+V2h w = 0.0 ; // no ischemia
+// V2h w = 1.0 ; // all ischemia
+
+	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
+
+	// V2h gw = sqrt( dx(w)*dx(w) + dy(w)*dy(w)) ;
+	// plot(gw,wait =1 , cmm = "gradient of the control function w" , fill =1 ,nbiso = 30 );
+
+
+// Initialize vectors for state and adjoint problem
+
+real[int] Bst(V2h.ndof)  ; // initialize rhs
+real[int] solState(V2h.ndof + 1); // initialize solution  
+
+real[int] Badj(V2h.ndof) ; // initialize rhs
+real[int] solAdj(V2h.ndof + 1); // initialize solution
+
+
+// Set penalization parameter
+real beta = 0.1 ; // coefficiente di penalizzazione
+
+
+// ITERATIVE LOOP
+
+int Nmax = 10 ; 
+
+real[int] Js(Nmax);
+
+V2h uh,ph,gradw;
+V2h stateLHS , stateRHS ;
+
+for (int i=0 ; i<Nmax ; ++i)
+{
+	// Build coefficients for the state problem
+	V2h stateLHS =( (Mi + Me) + (tMi + tMe - Mi - Me)*w )*(reg == regH) + M0*(reg == regT) ; // this should generally be a tensor
+	V2h stateRHS = -1. * (ischVtrans - healthyVtrans )*Mi ; 
+
+	// Build the matrix for the state problem
+	varf astate(uh,tuh) = int2d(Th)(stateLHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
+	varf bstate(uh,tuh) = int2d(Th,regH)(stateRHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
+
+	matrix Astate = astate(V2h,V2h) ;
+	matrix Bstate = bstate(V2h,V2h) ;
+	real[int] Cstate = c(0,V2h) ;
+
+	matrix TOTALstate = [ [ Astate  ,  Cstate ] ,
+				 	  	  [ Cstate' ,  0      ] ];
+
+	set(TOTALstate, solver = UMFPACK) ;
+	
+	// Build rhs for the state system
+	Bst.resize(V2h.ndof) ;
+	Bst = Bstate * w[]	;
+	Bst.resize(V2h.ndof + 1);
+
+	// Solve the state problem
+	cout << "Solving the state problem ..." << endl;
+	solState = TOTALstate^-1*Bst ;
+	uh[] = solState(0 : V2h.ndof ) ;
+
+	real[int] viso = [-10.,-9.,-8.,-7.,-6.,-5.,-4.,-3.,-2.,-1.,0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] ;
+	// plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
+	
+	cout << "Lagrange multiplier : " << solState(V2h.ndof) << endl;
+	cout << "Mean value of solution u : " << int2d(Th)(uh) / int2d(Th)(1.0) << endl;
+
+
+	// Build the matrix for the adjoint problem
+	varf aadj(uh,tuh) = int2d(Th)(stateLHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
+	varf badj(uh,tuh) = int1d(Th,dT)(-1.*(uh)*tuh) ; 
+
+	matrix Aadj = aadj(V2h,V2h) ;
+	matrix Badjoint = badj(V2h,V2h) ;
+	real[int] Cadj = c(0,V2h) ;
+
+	matrix TOTALadj = [ [ Aadj  ,  Cadj ] ,
+			 	    	[ Cadj' ,  0    ] ];
+
+	set(TOTALadj, solver = UMFPACK) ;
+
+	// Build rhs for the adjoint problem
+	Badj.resize(V2h.ndof) ;
+	V2h temp = uh - zd ;
+	Badj = Badjoint * ( temp[] ) ;
+	Badj.resize(V2h.ndof + 1);
+
+	// Solve the adjoint problem
+	cout << "Solving the adjoint problem ..." << endl;
+	solAdj = TOTALadj^-1*Badj ;
+	ph[] = solAdj(0 : V2h.ndof ) ;
+
+	// plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
+
+	// Compute gradient of w
+	varf agrad(u,v) = int2d(Th,regH)(u*v) + int2d(Th,regH)( dx(u)*dx(v) + dy(u)*dy(v) ) ;
+
+	varf bgrad(gw,tgw) = // int2d(Th,regH)(beta*( dx(w)*dx(tgw) + dy(w)*dy(tgw) ) )
+				   // + int2d(Th,regH)(beta*( w*tgw ) )
+				   int2d(Th,regH)( (tMi + tMe - Mi - Me )*tgw*( dx(uh)*dx(ph) + dy(uh)*dy(ph) ) )
+				   + int2d(Th,regH)( (ischVtrans - healthyVtrans )*tMi*( dx(tgw)*dx(ph) + dy(tgw)*dy(ph) ) )
+				   ;
+
+	matrix Agrad = agrad(V2h,V2h, solver = GMRES) ;
+	real[int] Bgrad = bgrad(0,V2h) ;
+
+	cout << "Computing the gradient of w ..." << endl;
+	gradw[] = Agrad^-1 * Bgrad ;
+
+	gradw = beta*w + gradw ; // aggiungi parte dovuta alla penalizzazione
+
+	// plot(gradw,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Gradient of w");	
+
+	// Evaluate objective function
+
+	Js[i] = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
+		+ int2d(Th,regH)( beta*(dx(w)*dx(w) + dy(w)*dy(w)) )
+		+ int2d(Th,regH)(beta*w*w) ;
+
+
+
+	cout << "Iteration " << i << ": Objective = " << Js[i] << endl;
+
+	// Update w 
+
+	w = w - gradw*0.005 ;
+	w = w*(reg == regH);
+
+	// plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
+
+	// Projection (to keep the control bounded between 0 and 1)
+	for (int j=0 ; j < V2h.ndof ; ++j) 
+	{
+		if (w[](j) >= 1.0) 
+			w[](j) = 1.0;
+
+		if (w[](j) <= 0.0) 
+			w[](j) = 0.0;	
+	}
+
+	// V2h error = abs(w - ischRegion) ;
+
+	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
+	plot(w,wait=0,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
+
+	// V2h errorState = abs(uh - zd) ;
+	// plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;
+
+}
+
+// Export in VTK format
+// savevtk("export/inverseECG.vtk",Th,G,w,zd,uh,ph) ;
+
+// Export objective function evaluations
+{
+	ofstream f("../export/J.txt");
+	for (int j=0;j<Nmax;++j)
+		f << j << " " << Js[j] << endl;
+}
+
+
+
+
+
+
+
+
+
+
+
+
