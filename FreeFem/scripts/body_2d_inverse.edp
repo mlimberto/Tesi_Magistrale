@@ -11,8 +11,19 @@
 // load "iovtk"
 // load "Element_P3"
 
-// Include parameters and mesh
+
+////////////////////////////////////////
+//////////     PARAMETERS     //////////
+////////////////////////////////////////
+
+// Include mesh and geometrical/physiological parameters
 include "body_parameters.edp"
+
+
+real beta = 0.1 ; // penalization coefficient
+real gstep = 0.002 ; // gradient step 
+
+int Nmax = 300 ; // number of iterations
 
 
 ////////////////////////////////////////
@@ -53,8 +64,9 @@ cout << "Solving the forward problem for a known ischemia" << endl;
 
 // Define an ischemia 
 
+V2h LS = 1. ; // no ischemia
 // V2h LS = x ; // level set for the ischemic region
-V2h LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
+// V2h LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
 V2h ischRegion = (LS(x,y) <= 0)*(reg == regH) ;
 	plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
 
@@ -105,11 +117,11 @@ cout << "Setting up the inverse problem ..." << endl;
 // Create an initial guess for the control function
 
 // V2h w = (1-G)*(reg == regH); // this w corresponds to the target solution 
-// real gamma = 3.5;
-// V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
+real gamma = 3.5;
+V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
 // V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
 // V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
-V2h w = 0.0 ; // no ischemia
+// V2h w = 0.0 ; // no ischemia
 // V2h w = 1.0 ; // all ischemia
 
 	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
@@ -127,13 +139,7 @@ real[int] Badj(V2h.ndof) ; // initialize rhs
 real[int] solAdj(V2h.ndof + 1); // initialize solution
 
 
-// Set penalization parameter
-real beta = 0.1 ; // coefficiente di penalizzazione
-
-
 // ITERATIVE LOOP
-
-int Nmax = 5 ; 
 
 real[int] Js(Nmax);
 
@@ -169,7 +175,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	solState = TOTALstate^-1*Bst ;
 	uh[] = solState(0 : V2h.ndof ) ;
 
-	real[int] viso = [-10.,-9.,-8.,-7.,-6.,-5.,-4.,-3.,-2.,-1.,0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] ;
+	// real[int] viso = [-10.,-9.,-8.,-7.,-6.,-5.,-4.,-3.,-2.,-1.,0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] ;
 	// plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
 	
 	cout << "Lagrange multiplier : " << solState(V2h.ndof) << endl;
@@ -233,7 +239,7 @@ for (int i=0 ; i<Nmax ; ++i)
 
 	// Update w 
 
-	w = w - gradw*0.005 ;
+	w = w - gradw*gstep ;
 	w = w*(reg == regH);
 
 	// plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
@@ -251,7 +257,9 @@ for (int i=0 ; i<Nmax ; ++i)
 	// V2h error = abs(w - ischRegion) ;
 
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
-	plot(w,wait=0,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
+
+	real[int] viso = 0.0:0.1:1.0 ;
+	plot(w,wait=0,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
 
 	// V2h errorState = abs(uh - zd) ;
 	// plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;
