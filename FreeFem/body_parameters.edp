@@ -44,8 +44,8 @@ real healthyVtrans = -90;
 // Ischemia location
 
 real ischX = 0.0 ; // x
-real ischY = 0.4 ; // y
-real ischR = 0.4 ; // R
+real ischY = 0.6 ; // y
+real ischR = 0.3 ; // R
 real ischC = 1.0 ; // eccentricity
 
 

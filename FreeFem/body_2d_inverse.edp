@@ -20,7 +20,7 @@ include "body_parameters.edp"
 ////////////////////////////////////////
 
 // Finite element spaces
-fespace V2h(Th,P2); // P1,P2,P3...
+fespace V2h(Th,P1); // P1,P2,P3...
 
 // variational formulations
 V2h Mlhs,Mrhs,vtrans;
@@ -52,7 +52,9 @@ reg[] = Bd ? regH : reg[] ;
 cout << "Solving the forward problem for a known ischemia" << endl;
 
 // Define an ischemia 
-V2h LS = x ; // level set for the ischemic region
+
+// V2h LS = x ; // level set for the ischemic region
+V2h LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
 V2h ischRegion = (LS(x,y) <= 0)*(reg == regH) ;
 	plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
 
@@ -103,11 +105,11 @@ cout << "Setting up the inverse problem ..." << endl;
 // Create an initial guess for the control function
 
 // V2h w = (1-G)*(reg == regH); // this w corresponds to the target solution 
-real gamma = 3.5;
-V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
+// real gamma = 3.5;
+// V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
 // V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
 // V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
-// V2h w = 0.0 ; // no ischemia
+V2h w = 0.0 ; // no ischemia
 // V2h w = 1.0 ; // all ischemia
 
 	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
@@ -131,7 +133,7 @@ real beta = 0.1 ; // coefficiente di penalizzazione
 
 // ITERATIVE LOOP
 
-int Nmax = 60 ; 
+int Nmax = 150 ; 
 
 V2h uh,ph,gradw;
 V2h stateLHS , stateRHS ;
