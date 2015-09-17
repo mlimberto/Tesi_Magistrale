@@ -20,7 +20,7 @@ include "body_parameters.edp"
 ////////////////////////////////////////
 
 // Finite element spaces
-fespace V2h(Th,P1); // P1,P2,P3...
+fespace V2h(Th,P2); // P1,P2,P3...
 
 // variational formulations
 V2h Mlhs,Mrhs,vtrans;
@@ -105,8 +105,8 @@ real gamma = 3.5;
 
 // V2h w = (1-G)*(reg == regH); // this w corresponds to the target solution 
 // V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
-// V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
-V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
+V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
+// V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
 
 	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
 
@@ -129,7 +129,7 @@ real beta = 0.1 ; // coefficiente di penalizzazione
 
 // ITERATIVE LOOP
 
-int Nmax = 10 ; 
+int Nmax = 60 ; 
 
 V2h uh,ph,gradw;
 V2h stateLHS , stateRHS ;
@@ -164,7 +164,8 @@ for (int i=0 ; i<Nmax ; ++i)
 	uh[] = solState(0 : V2h.ndof ) ;
 
 	real[int] viso = [-10.,-9.,-8.,-7.,-6.,-5.,-4.,-3.,-2.,-1.,0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] ;
-	plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
+	// plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
+	
 	cout << "Lagrange multiplier : " << solState(V2h.ndof) << endl;
 	cout << "Mean value of solution u : " << int2d(Th)(uh) / int2d(Th)(1.0) << endl;
 
@@ -193,7 +194,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	solAdj = TOTALadj^-1*Badj ;
 	ph[] = solAdj(0 : V2h.ndof ) ;
 
-	plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
+	// plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
 
 	// Compute gradient of w
 	varf agrad(u,v) = int2d(Th,regH)(u*v) + int2d(Th,regH)( dx(u)*dx(v) + dy(u)*dy(v) ) ;
@@ -207,11 +208,12 @@ for (int i=0 ; i<Nmax ; ++i)
 	matrix Agrad = agrad(V2h,V2h, solver = GMRES) ;
 	real[int] Bgrad = bgrad(0,V2h) ;
 
+	cout << "Computing the gradient of w ..." << endl;
 	gradw[] = Agrad^-1 * Bgrad ;
 
 	gradw = beta*w + gradw ; // aggiungi parte dovuta alla penalizzazione
 
-	plot(gradw,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Gradient of w");	
+	// plot(gradw,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Gradient of w");	
 
 	// Evaluate objective function
 
@@ -219,14 +221,14 @@ for (int i=0 ; i<Nmax ; ++i)
 		+ int2d(Th,regH)( beta*(dx(w)*dx(w) + dy(w)*dy(w)) )
 		+ int2d(Th,regH)(beta*w*w) ;
 
-	cout << "Objective : " << J << endl;
+	cout << "Iteration " << i << ": Objective = " << J << endl;
 
 	// Update w 
 
 	w = w - gradw*0.01 ;
 	w = w*(reg == regH);
 
-	plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
+	// plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
 
 	// Projection (to keep the control bounded between 0 and 1)
 	for (int j=0 ; j < V2h.ndof ; ++j) 
@@ -243,7 +245,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
 	plot(w,wait=0,fill=1,nbiso = 20,dim=2 , cmm = "new w after projection");	
 
-	V2h errorState = abs(uh - zd) ;
+	// V2h errorState = abs(uh - zd) ;
 	// plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;
 
 }
