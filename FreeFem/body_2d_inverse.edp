@@ -101,12 +101,14 @@ cout << "Mean value of solution zd : " << int2d(Th)(zd) / int2d(Th)(1.0) << endl
 cout << "Setting up the inverse problem ..." << endl;
 
 // Create an initial guess for the control function
-real gamma = 3.5;
 
 // V2h w = (1-G)*(reg == regH); // this w corresponds to the target solution 
-// V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
-V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
+real gamma = 3.5;
+V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
+// V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
 // V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
+// V2h w = 0.0 ; // no ischemia
+// V2h w = 1.0 ; // all ischemia
 
 	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
 
