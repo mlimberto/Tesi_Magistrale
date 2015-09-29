@@ -20,10 +20,10 @@
 include "body_parameters.edp"
 
 
-real beta = 0.1 ; // penalization coefficient
-real gstep = 0.002 ; // gradient step 
+real beta = 0.001 ; // penalization coefficient
+real gstep = 0.004 ; // gradient step 
 
-int Nmax = 300 ; // number of iterations
+int Nmax = 100 ; // number of iterations
 
 
 ////////////////////////////////////////
@@ -31,7 +31,7 @@ int Nmax = 300 ; // number of iterations
 ////////////////////////////////////////
 
 // Finite element spaces
-fespace V2h(Th,P1); // P1,P2,P3...
+fespace V2h(Th,P2); // P1,P2,P3...
 
 // variational formulations
 V2h Mlhs,Mrhs,vtrans;
@@ -64,9 +64,9 @@ cout << "Solving the forward problem for a known ischemia" << endl;
 
 // Define an ischemia 
 
-V2h LS = 1. ; // no ischemia
+// V2h LS = 1. ; // no ischemia
 // V2h LS = x ; // level set for the ischemic region
-// V2h LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
+V2h LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
 V2h ischRegion = (LS(x,y) <= 0)*(reg == regH) ;
 	plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
 
@@ -118,7 +118,7 @@ cout << "Setting up the inverse problem ..." << endl;
 
 // V2h w = (1-G)*(reg == regH); // this w corresponds to the target solution 
 real gamma = 3.5;
-V2h w = 1.*exp(-gamma * ((x)*(x) + y*y) ) * (reg == regH) ; // the control function is defined only inside the heart region
+V2h w = 1.*exp(-gamma * ((x)*(x) + (y-0.4)*(y-0.4) ) ) * (reg == regH) ; // the control function is defined only inside the heart region
 // V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
 // V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
 // V2h w = 0.0 ; // no ischemia
@@ -225,7 +225,7 @@ for (int i=0 ; i<Nmax ; ++i)
 
 	gradw = beta*w + gradw ; // aggiungi parte dovuta alla penalizzazione
 
-	// plot(gradw,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "Gradient of w");	
+	// plot(gradw,wait=1,fill=1,nbiso = 20,dim=2 , cmm = "Gradient of w");	
 
 	// Evaluate objective function
 
@@ -259,7 +259,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
 
 	real[int] viso = 0.0:0.1:1.0 ;
-	plot(w,wait=0,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
+	plot(w,wait=1,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
 
 	// V2h errorState = abs(uh - zd) ;
 	// plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;

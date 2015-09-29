@@ -24,6 +24,7 @@ include "body_parameters_interp.edp"
 
 
 real beta = 0.001 ; // penalization coefficient
+
 real gstep = 0.004 ; // gradient step 
 
 int Nmax = 100 ; // number of iterations
@@ -34,21 +35,13 @@ int Nmax = 100 ; // number of iterations
 ////////////////////////////////////////
 
 // Finite element spaces
-fespace V2h(Th,P1); // P1,P2,P3...
-fespace V2in(Tin,P1); // P1,P2,P3 ... for the heart only
+fespace V2h(Th,P2); // P1,P2,P3...
+fespace V2in(Tin,P2); // P1,P2,P3 ... for the heart only
 
 // Build extension and restriction matrix
 matrix IM = interpolate(V2h,V2in,inside=1); // extension to 0 in the torso
-
 matrix RM = interpolate(V2in,V2h);
 
-// variational formulations
-V2h Mlhs,Mrhsbar;
-V2in Mrhs,vtrans;
-
-varf a(uh,tuh) = int2d(Th)(Mlhs*(dx(uh)*dx(tuh) + dy(uh)*dy(tuh))) ;
-varf b(uh,tuh) = - int2d(Th)(Mrhsbar*( dx(tuh)*dx(vtrans) + dy(tuh)*dy(vtrans) ) ) ;
-varf c(uh,tuh) = int2d(Th)(tuh) ; // use to enforce the zero-mean condition with a Lagrange multiplier
 
 ////////////////////////////////////////
 //////      REGION FUNCTION      ///////
@@ -74,10 +67,11 @@ reg[] = Bd ? regH : reg[] ;
 
 cout << "Solving the forward problem for a known ischemia" << endl;
 
-// Define an ischemia 
+// Set the initial ischemia 
+// we do it through a level-set function (possibly a signed distance function)
 
 // V2in LS = 1. ; // no ischemia
-V2in LS = x ; // level set for the ischemic region
+V2in LS = x ; 
 // V2in LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
 
 V2in ischRegion = (LS(x,y) <= 0) ;
@@ -88,19 +82,27 @@ V2in G = (LS > tau) + 0.5 *(1 + LS/tau + sin(pi*LS/tau)/pi)*(abs(LS) < tau);
 	// V2h targetW =  1. - G ;
 	// plot(targetW,wait=1,value = 1,fill=1, cmm = "Smoothed region function");
 
-vtrans = ischVtrans*(1-G) + healthyVtrans*G ;
+V2in vtrans = ischVtrans*(1-G) + healthyVtrans*G ;
 	// V2h gvtrans = sqrt( dx(vtrans)*dx(vtrans) + dy(vtrans)*dy(vtrans)) ;
 	// plot(gvtrans,wait=1,value = 1,fill=1, cmm = "Gradient of the transmembrane potential");
 
 
-Mlhs = (Mi + Me )*G*(reg == regH) + (tMi + tMe )*(1-G)*(reg == regH) + M0*(reg == regT) ;
-Mrhs = Mi*G + tMi*(1-G) ;
-Mrhsbar[] = IM * Mrhs[] ; // extend rhs to the torso
+// Compute the coefficients
+
+V2h Mlhs = (Mi + Me )*G*(reg == regH) + (tMi + tMe )*(1-G)*(reg == regH) + M0*(reg == regT) ;
+V2in Mrhs = Mi*G + tMi*(1-G) ;
+
+V2h Mrhsbar;
+Mrhsbar[] = IM * Mrhs[] ; // extend rhs to the torso (with zero extension)
 
 	// plot(Mlhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M lhs", dim = 2 );
 	// plot(Mrhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs", dim = 2 );
 	// plot(Mrhsbar, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs bar", dim = 2 );
 
+// Linear and bilinear forms
+varf a(uh,tuh) = int2d(Th)(Mlhs*(dx(uh)*dx(tuh) + dy(uh)*dy(tuh))) ;
+varf b(uh,tuh) = - int2d(Th)(Mrhsbar*( dx(tuh)*dx(vtrans) + dy(tuh)*dy(vtrans) ) ) ; // MAGARI CAMBIA QUESTA E USA INTERPOLATION MATRIX
+varf c(uh,tuh) = int2d(Th)(tuh) ; // use to enforce the zero-mean condition with a Lagrange multiplier
 
 // Build the matrices and solve the problem
 matrix A = a(V2h,V2h) ;
@@ -131,7 +133,7 @@ cout << "Mean value of solution zd : " << int2d(Th)(zd) / int2d(Th)(1.0) << endl
 
 cout << "Setting up the inverse problem ..." << endl;
 
-// Create an initial guess for the control function
+// Define an initial guess for the control function
 
 // V2in w = 1-G ; // this w corresponds to the target solution 
 // real gamma = 3.5;
@@ -146,7 +148,7 @@ V2h wbar;
 wbar[] = IM * w[] ;
 
 	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
-	plot(wbar,wait=1 , cmm = "Extended control function w" , fill =1 ,nbiso = 30 );
+	// plot(wbar,wait=1 , cmm = "Extended control function w" , fill =1 ,nbiso = 30 );
 	
 	// V2in gw = sqrt( dx(w)*dx(w) + dy(w)*dy(w)) ;
 	// V2h gwbar = sqrt( dx(wbar)*dx(wbar) + dy(wbar)*dy(wbar)) ;
@@ -277,18 +279,15 @@ for (int i=0 ; i<Nmax ; ++i)
 	// Projection (to keep the control bounded between 0 and 1)
 	for (int j=0 ; j < V2in.ndof ; ++j) 
 	{
-		if (w[](j) >= 1.0) 
-			w[](j) = 1.0;
-
-		if (w[](j) <= 0.0) 
-			w[](j) = 0.0;	
+		w[](j) = ( w[](j) >= 1.0 ) ? 1.0 : w[](j) ;  
+		w[](j) = ( w[](j) <= 0.0 ) ? 0.0 : w[](j) ;  
 	}
 
 	// V2in error = abs(w - ischRegion) ;
 
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
 
-	real[int] viso = 0.0:0.1:1.0 ;
+	real[int] viso = 0.0:0.1:1.0 ; viso = [-0.05 , viso , 1.05 ];
 	plot(w,wait=0,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
 
 	// V2h errorState = abs(uh - zd) ;
@@ -301,6 +300,7 @@ for (int i=0 ; i<Nmax ; ++i)
 
 // Export objective function evaluations
 {
+	cout << "Exporting objective function ..." << endl;
 	ofstream f("../export/J.txt");
 	for (int j=0;j<Nmax;++j)
 		f << j << " " << Js[j] << endl;
