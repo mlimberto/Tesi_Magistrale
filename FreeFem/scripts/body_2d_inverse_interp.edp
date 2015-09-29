@@ -100,7 +100,6 @@ Mrhsbar[] = IM * Mrhs[] ; // extend rhs to the torso
 	// plot(Mrhsbar, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs bar", dim = 2 );
 
 
-
 // Build the matrices and solve the problem
 matrix A = a(V2h,V2h) ;
 real[int] C = c(0,V2h) ;
@@ -132,18 +131,26 @@ cout << "Setting up the inverse problem ..." << endl;
 
 // Create an initial guess for the control function
 
-// V2h w = (1-G)*(reg == regH); // this w corresponds to the target solution 
-real gamma = 3.5;
-V2h w = 1.*exp(-gamma * ((x)*(x) + (y-0.4)*(y-0.4) ) ) * (reg == regH) ; // the control function is defined only inside the heart region
-// V2h w = (1. - G(x+ 0.6 , y)) ; // less ischemia
-// V2h w = (1. - G(x - 0.6 , y)) ; // more ischemia
-// V2h w = 0.0 ; // no ischemia
-// V2h w = 1.0 ; // all ischemia
+// V2in w = 1-G ; // this w corresponds to the target solution 
+// real gamma = 3.5;
+// V2in w = 1.*exp(-gamma * ((x)*(x) + (y-0.4)*(y-0.4) ) ) ; // the control function is defined only inside the heart region
+V2in w = (1. - G(x+ 0.6 , y)) ; // less ischemia
+// V2in w = (1. - G(x - 0.6 , y)) ; // more ischemia
+// V2in w = 0.0 ; // no ischemia
+// V2in w = 1.0 ; // all ischemia
+
+// Define extension to the torso 
+V2h wbar;
+wbar[] = IM * w[] ;
 
 	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
+	plot(wbar,wait=1 , cmm = "Extended control function w" , fill =1 ,nbiso = 30 );
+	
+	// V2in gw = sqrt( dx(w)*dx(w) + dy(w)*dy(w)) ;
+	// V2h gwbar = sqrt( dx(wbar)*dx(wbar) + dy(wbar)*dy(wbar)) ;
 
-	// V2h gw = sqrt( dx(w)*dx(w) + dy(w)*dy(w)) ;
 	// plot(gw,wait =1 , cmm = "gradient of the control function w" , fill =1 ,nbiso = 30 );
+	// plot(gwbar,wait =1 , cmm = "gradient of the extended control function w" , fill =1 ,nbiso = 30 );
 
 
 // Initialize vectors for state and adjoint problem
@@ -165,7 +172,7 @@ V2h stateLHS , stateRHS ;
 for (int i=0 ; i<Nmax ; ++i)
 {
 	// Build coefficients for the state problem
-	V2h stateLHS =( (Mi + Me) + (tMi + tMe - Mi - Me)*w )*(reg == regH) + M0*(reg == regT) ; // this should generally be a tensor
+	V2h stateLHS =( (Mi + Me) + (tMi + tMe - Mi - Me)*wbar )*(reg == regH) + M0*(reg == regT) ; // this should generally be a tensor
 	V2h stateRHS = -1. * (ischVtrans - healthyVtrans )*Mi ; 
 
 	// Build the matrix for the state problem
@@ -173,7 +180,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	varf bstate(uh,tuh) = int2d(Th,regH)(stateRHS*( dx(uh)*dx(tuh) + dy(uh)*dy(tuh) ) ) ;
 
 	matrix Astate = astate(V2h,V2h) ;
-	matrix Bstate = bstate(V2h,V2h) ;
+	matrix Bstate = bstate(V2in,V2h) ;
 	real[int] Cstate = c(0,V2h) ;
 
 	matrix TOTALstate = [ [ Astate  ,  Cstate ] ,
@@ -184,7 +191,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	// Build rhs for the state system
 	Bst.resize(V2h.ndof) ;
 	Bst = Bstate * w[]	;
-	Bst.resize(V2h.ndof + 1);
+	Bst.resize(V2h.ndof + 1); // to account for zero-mean condition
 
 	// Solve the state problem
 	cout << "Solving the state problem ..." << endl;
@@ -192,7 +199,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	uh[] = solState(0 : V2h.ndof ) ;
 
 	// real[int] viso = [-10.,-9.,-8.,-7.,-6.,-5.,-4.,-3.,-2.,-1.,0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] ;
-	// plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
+	plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
 	
 	cout << "Lagrange multiplier : " << solState(V2h.ndof) << endl;
 	cout << "Mean value of solution u : " << int2d(Th)(uh) / int2d(Th)(1.0) << endl;
@@ -222,7 +229,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	solAdj = TOTALadj^-1*Badj ;
 	ph[] = solAdj(0 : V2h.ndof ) ;
 
-	// plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
+	plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
 
 	// Compute gradient of w
 	varf agrad(u,v) = int2d(Th,regH)(u*v) + int2d(Th,regH)( dx(u)*dx(v) + dy(u)*dy(v) ) ;
