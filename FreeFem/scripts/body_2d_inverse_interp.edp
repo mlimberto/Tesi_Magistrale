@@ -38,18 +38,21 @@ fespace V2h(Th,P2); // P1,P2,P3...
 fespace V2in(Tin,P2); // P1,P2,P3 ... for the heart only
 
 // Build interpolation matrix
-matrix IM = interp(V2h,V2in,inside=1); // extension to 0 in the torso
+matrix IM = interpolate(V2h,V2in,inside=1); // extension to 0 in the torso
 
 // variational formulations
-V2h Mlhs,Mrhs,vtrans;
+V2h Mlhs,Mrhsbar;
+V2in Mrhs,vtrans;
 
 varf a(uh,tuh) = int2d(Th)(Mlhs*(dx(uh)*dx(tuh) + dy(uh)*dy(tuh))) ;
-varf b(uh,tuh) = - int2d(Th)(Mrhs*( dx(tuh)*dx(vtrans) + dy(tuh)*dy(vtrans) ) ) ;
+varf b(uh,tuh) = - int2d(Th)(Mrhsbar*( dx(tuh)*dx(vtrans) + dy(tuh)*dy(vtrans) ) ) ;
 varf c(uh,tuh) = int2d(Th)(tuh) ; // use to enforce the zero-mean condition with a Lagrange multiplier
 
 ////////////////////////////////////////
 //////      REGION FUNCTION      ///////
 ////////////////////////////////////////
+
+// Region function is needed to define piece-wise constant coefficients
 
 // Patch the region function to account for the internal boundary
 V2h reg = region ;
@@ -71,14 +74,15 @@ cout << "Solving the forward problem for a known ischemia" << endl;
 
 // Define an ischemia 
 
-// V2h LS = 1. ; // no ischemia
-// V2h LS = x ; // level set for the ischemic region
-V2h LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
-V2h ischRegion = (LS(x,y) <= 0)*(reg == regH) ;
+// V2in LS = 1. ; // no ischemia
+V2in LS = x ; // level set for the ischemic region
+// V2in LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
+
+V2in ischRegion = (LS(x,y) <= 0) ;
 	plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
 
 // Compute the transmembrane potential (source term)
-V2h G = (LS > tau) + 0.5 *(1 + LS/tau + sin(pi*LS/tau)/pi)*(abs(LS) < tau);
+V2in G = (LS > tau) + 0.5 *(1 + LS/tau + sin(pi*LS/tau)/pi)*(abs(LS) < tau);
 	// V2h targetW =  1. - G ;
 	// plot(targetW,wait=1,value = 1,fill=1, cmm = "Smoothed region function");
 
@@ -88,9 +92,14 @@ vtrans = ischVtrans*(1-G) + healthyVtrans*G ;
 
 
 Mlhs = (Mi + Me )*G*(reg == regH) + (tMi + tMe )*(1-G)*(reg == regH) + M0*(reg == regT) ;
-Mrhs = Mi*G*(reg == regH) + tMi*(1-G)*(reg == regH) ;
+Mrhs = Mi*G + tMi*(1-G) ;
+Mrhsbar[] = IM * Mrhs[] ; // extend rhs to the torso
+
 	// plot(Mlhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M lhs", dim = 2 );
 	// plot(Mrhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs", dim = 2 );
+	// plot(Mrhsbar, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs bar", dim = 2 );
+
+
 
 // Build the matrices and solve the problem
 matrix A = a(V2h,V2h) ;
