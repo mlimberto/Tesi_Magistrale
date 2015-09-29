@@ -34,11 +34,13 @@ int Nmax = 100 ; // number of iterations
 ////////////////////////////////////////
 
 // Finite element spaces
-fespace V2h(Th,P2); // P1,P2,P3...
-fespace V2in(Tin,P2); // P1,P2,P3 ... for the heart only
+fespace V2h(Th,P1); // P1,P2,P3...
+fespace V2in(Tin,P1); // P1,P2,P3 ... for the heart only
 
-// Build interpolation matrix
+// Build extension and restriction matrix
 matrix IM = interpolate(V2h,V2in,inside=1); // extension to 0 in the torso
+
+matrix RM = interpolate(V2in,V2h);
 
 // variational formulations
 V2h Mlhs,Mrhsbar;
@@ -166,8 +168,9 @@ real[int] solAdj(V2h.ndof + 1); // initialize solution
 
 real[int] Js(Nmax);
 
-V2h uh,ph,gradw;
+V2h uh,ph ;
 V2h stateLHS , stateRHS ;
+V2in gradw;
 
 for (int i=0 ; i<Nmax ; ++i)
 {
@@ -199,7 +202,7 @@ for (int i=0 ; i<Nmax ; ++i)
 	uh[] = solState(0 : V2h.ndof ) ;
 
 	// real[int] viso = [-10.,-9.,-8.,-7.,-6.,-5.,-4.,-3.,-2.,-1.,0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] ;
-	plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
+	// plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
 	
 	cout << "Lagrange multiplier : " << solState(V2h.ndof) << endl;
 	cout << "Mean value of solution u : " << int2d(Th)(uh) / int2d(Th)(1.0) << endl;
@@ -229,19 +232,24 @@ for (int i=0 ; i<Nmax ; ++i)
 	solAdj = TOTALadj^-1*Badj ;
 	ph[] = solAdj(0 : V2h.ndof ) ;
 
-	plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
+	// plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
 
 	// Compute gradient of w
-	varf agrad(u,v) = int2d(Th,regH)(u*v) + int2d(Th,regH)( dx(u)*dx(v) + dy(u)*dy(v) ) ;
+
+	V2in uhr , phr ; 
+	uhr[] = RM * uh[] ; 
+	phr[] = RM * ph[] ;
+
+	varf agrad(u,v) = int2d(Tin)(u*v) + int2d(Tin)( dx(u)*dx(v) + dy(u)*dy(v) ) ;
 
 	varf bgrad(gw,tgw) = // int2d(Th,regH)(beta*( dx(w)*dx(tgw) + dy(w)*dy(tgw) ) )
 				   // + int2d(Th,regH)(beta*( w*tgw ) )
-				   int2d(Th,regH)( (tMi + tMe - Mi - Me )*tgw*( dx(uh)*dx(ph) + dy(uh)*dy(ph) ) )
-				   + int2d(Th,regH)( (ischVtrans - healthyVtrans )*tMi*( dx(tgw)*dx(ph) + dy(tgw)*dy(ph) ) )
+				   int2d(Tin)( (tMi + tMe - Mi - Me )*tgw*( dx(uhr)*dx(phr) + dy(uhr)*dy(phr) ) )
+				   + int2d(Tin)( (ischVtrans - healthyVtrans )*tMi*( dx(tgw)*dx(phr) + dy(tgw)*dy(phr) ) )
 				   ;
 
-	matrix Agrad = agrad(V2h,V2h, solver = GMRES) ;
-	real[int] Bgrad = bgrad(0,V2h) ;
+	matrix Agrad = agrad(V2in,V2in, solver = UMFPACK) ;
+	real[int] Bgrad = bgrad(0,V2in) ;
 
 	cout << "Computing the gradient of w ..." << endl;
 	gradw[] = Agrad^-1 * Bgrad ;
@@ -253,8 +261,8 @@ for (int i=0 ; i<Nmax ; ++i)
 	// Evaluate objective function
 
 	Js[i] = int1d(Th,dT)( (uh - zd)*(uh - zd) ) 
-		+ int2d(Th,regH)( beta*(dx(w)*dx(w) + dy(w)*dy(w)) )
-		+ int2d(Th,regH)(beta*w*w) ;
+		+ int2d(Tin)( beta*(dx(w)*dx(w) + dy(w)*dy(w)) )
+		+ int2d(Tin,regH)(beta*w*w) ;
 
 
 
@@ -263,12 +271,11 @@ for (int i=0 ; i<Nmax ; ++i)
 	// Update w 
 
 	w = w - gradw*gstep ;
-	w = w*(reg == regH);
 
 	// plot(w,wait=1,fill=1,nbiso = 20,dim=3 , cmm = "new w");	
 
 	// Projection (to keep the control bounded between 0 and 1)
-	for (int j=0 ; j < V2h.ndof ; ++j) 
+	for (int j=0 ; j < V2in.ndof ; ++j) 
 	{
 		if (w[](j) >= 1.0) 
 			w[](j) = 1.0;
@@ -277,12 +284,12 @@ for (int i=0 ; i<Nmax ; ++i)
 			w[](j) = 0.0;	
 	}
 
-	// V2h error = abs(w - ischRegion) ;
+	// V2in error = abs(w - ischRegion) ;
 
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
 
 	real[int] viso = 0.0:0.1:1.0 ;
-	plot(w,wait=1,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
+	plot(w,wait=0,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
 
 	// V2h errorState = abs(uh - zd) ;
 	// plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;
