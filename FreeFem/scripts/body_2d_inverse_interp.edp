@@ -177,6 +177,7 @@ real[int] solAdj(V2h.ndof + 1); // initialize solution
 // ITERATIVE LOOP
 
 real[int] Js(Nmax);
+real[int] trueJs(Nmax);
 
 V2h uh,ph ;
 V2h stateLHS , stateRHS ;
@@ -278,9 +279,10 @@ for (int i=0 ; i<Nmax ; ++i)
 		+ int2d(Tin)( beta*(dx(w)*dx(w) + dy(w)*dy(w)) )
 		+ int2d(Tin,regH)(beta*w*w) ;
 
-
+	trueJs[i] = int1d(Th,dT)( (uh - zd)*(uh - zd) ) ;
 
 	cout << "Iteration " << i << ": Objective = " << Js[i] << endl;
+	cout << "Iteration " << i << ": True Objective = " << trueJs[i] << endl;
 
 	// Update w 
 
@@ -315,8 +317,11 @@ for (int i=0 ; i<Nmax ; ++i)
 {
 	cout << "Exporting objective function ..." << endl;
 	ofstream f("../export/J.txt");
-	for (int j=0;j<Nmax;++j)
+	ofstream g("../export/tJ.txt");
+	for (int j=0;j<Nmax;++j){
 		f << j << " " << Js[j] << endl;
+		g << j << " " << trueJs[j] << endl;
+	}
 }
 
 
