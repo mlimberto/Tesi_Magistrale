@@ -1,0 +1,8 @@
+// Configuration file written by Python testing script
+real gstep = 0.004 ;
+real beta = 0.001 ;
+int Nmax = 15 ;
+
+fespace V2h(Th,P1) ;
+fespace V2in(Tin,P1) ;
+bool plotData = false ;
