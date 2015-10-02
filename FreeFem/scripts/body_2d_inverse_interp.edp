@@ -22,21 +22,21 @@
 // Include mesh and geometrical/physiological parameters
 include "body_parameters_interp.edp"
 
+include "numerical_parameters.edp"
 
-real beta = 0.001 ; // penalization coefficient
+////////////////////////////////////////
+//////      		MESH  		  //////
+////////////////////////////////////////
 
-real gstep = 0.004 ; // gradient step 
-
-int Nmax = 100 ; // number of iterations
-
+if(plotData){
+	plot(Th,wait=1,cmm="Compound mesh");
+	plot(Tin,wait=1,cmm="Heart mesh");
+}
 
 ////////////////////////////////////////
 //////     FUNCTIONAL SETTING     //////
 ////////////////////////////////////////
 
-// Finite element spaces
-fespace V2h(Th,P2); // P1,P2,P3...
-fespace V2in(Tin,P2); // P1,P2,P3 ... for the heart only
 
 // Build extension and restriction matrix
 matrix IM = interpolate(V2h,V2in,inside=1); // extension to 0 in the torso
@@ -75,16 +75,19 @@ V2in LS = x ;
 // V2in LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
 
 V2in ischRegion = (LS(x,y) <= 0) ;
-	plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
 
 // Compute the transmembrane potential (source term)
 V2in G = (LS > tau) + 0.5 *(1 + LS/tau + sin(pi*LS/tau)/pi)*(abs(LS) < tau);
-	// V2h targetW =  1. - G ;
-	// plot(targetW,wait=1,value = 1,fill=1, cmm = "Smoothed region function");
 
 V2in vtrans = ischVtrans*(1-G) + healthyVtrans*G ;
+
+if(plotData){
+	plot(ischRegion,wait=1,nbiso=4,value = 1,fill=1, cmm = "Infarcted region location");
+	// V2h targetW =  1. - G ;
+	// plot(targetW,wait=1,value = 1,fill=1, cmm = "Smoothed region function");
 	// V2h gvtrans = sqrt( dx(vtrans)*dx(vtrans) + dy(vtrans)*dy(vtrans)) ;
 	// plot(gvtrans,wait=1,value = 1,fill=1, cmm = "Gradient of the transmembrane potential");
+}
 
 
 // Compute the coefficients
@@ -95,9 +98,11 @@ V2in Mrhs = Mi*G + tMi*(1-G) ;
 V2h Mrhsbar;
 Mrhsbar[] = IM * Mrhs[] ; // extend rhs to the torso (with zero extension)
 
+// if(plotData){
 	// plot(Mlhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M lhs", dim = 2 );
 	// plot(Mrhs, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs", dim = 2 );
 	// plot(Mrhsbar, fill = 1 , wait = 1, value = 1 , nbiso = 20, cmm = "M rhs bar", dim = 2 );
+// }
 
 // Linear and bilinear forms
 varf a(uh,tuh) = int2d(Th)(Mlhs*(dx(uh)*dx(tuh) + dy(uh)*dy(tuh))) ;
@@ -121,6 +126,8 @@ sol= TOTAL^-1*rhs ;
 
 V2h zd;
 zd[] = sol(0 : V2h.ndof);
+
+if(plotData)
 	plot(zd,wait=1,fill=1,nbiso = 20,dim=2 , cmm = "Target solution");
 
 cout << "Lagrange multiplier : " << sol[V2h.ndof] << endl;
@@ -147,6 +154,7 @@ V2in w = (1. - G(x+ 0.6 , y)) ; // less ischemia
 V2h wbar;
 wbar[] = IM * w[] ;
 
+if(plotData){
 	plot(w,wait=1 , cmm = "control function w" , fill =1 ,nbiso = 30 );
 	// plot(wbar,wait=1 , cmm = "Extended control function w" , fill =1 ,nbiso = 30 );
 	
@@ -155,7 +163,7 @@ wbar[] = IM * w[] ;
 
 	// plot(gw,wait =1 , cmm = "gradient of the control function w" , fill =1 ,nbiso = 30 );
 	// plot(gwbar,wait =1 , cmm = "gradient of the extended control function w" , fill =1 ,nbiso = 30 );
-
+}
 
 // Initialize vectors for state and adjoint problem
 
@@ -204,8 +212,10 @@ for (int i=0 ; i<Nmax ; ++i)
 	uh[] = solState(0 : V2h.ndof ) ;
 
 	// real[int] viso = [-10.,-9.,-8.,-7.,-6.,-5.,-4.,-3.,-2.,-1.,0.,1.,2.,3.,4.,5.,6.,7.,8.,9.,10.] ;
-	// plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
-	
+	// if(plotData){
+		// plot(uh,wait=1,fill=1,dim=2 , cmm = "Solution for the state problem");
+	// }
+
 	cout << "Lagrange multiplier : " << solState(V2h.ndof) << endl;
 	cout << "Mean value of solution u : " << int2d(Th)(uh) / int2d(Th)(1.0) << endl;
 
@@ -234,8 +244,10 @@ for (int i=0 ; i<Nmax ; ++i)
 	solAdj = TOTALadj^-1*Badj ;
 	ph[] = solAdj(0 : V2h.ndof ) ;
 
-	// plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
-
+	// if(plotData){
+		// plot(ph,wait=1,fill=1,nbiso = 40,dim=2 , cmm = "Solution for the adjoint problem");
+	// }
+	
 	// Compute gradient of w
 
 	V2in uhr , phr ; 
@@ -287,9 +299,10 @@ for (int i=0 ; i<Nmax ; ++i)
 
 	// plot(error,wait=0,fill=1,nbiso = 20,dim=3 , cmm = "Error");	
 
-	real[int] viso = 0.0:0.1:1.0 ; viso = [-0.05 , viso , 1.05 ];
-	plot(w,wait=0,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
-
+	if(plotData){
+		real[int] viso = 0.0:0.1:1.0 ; viso = [-0.05 , viso , 1.05 ];
+		plot(w,wait=0,viso = viso,fill=1,nbiso = 20,dim=2 ,value=1, cmm = "new w after projection");	
+	}
 	// V2h errorState = abs(uh - zd) ;
 	// plot(errorState , fill=1 , dim = 2 , cmm = "uh - zd") ;
 

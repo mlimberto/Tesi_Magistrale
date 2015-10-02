@@ -66,11 +66,9 @@ border rvent(t = 0 , 2*pi ) {x = ventR*ventC*cos(t) + ventD ; y = ventR*sin(t) ;
 
 // Heart mesh
 mesh Tin = buildmesh (heart(200) + lvent(-40) + rvent(-40) ) ;
-	// plot(Tin,wait=1,cmm="Mesh of the heart");
 // Compound mesh
 mesh Th = buildmesh(body(100) + heart(200) + lvent(-40) + rvent(-40) ) ;
-	// plot(body(40) + heart(30) + lvent(-10) + rvent(-10) ,wait=1);
-	plot(Th, wait=1, cmm = "mesh of the domain");
+
 
 
 
