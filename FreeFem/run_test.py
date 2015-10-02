@@ -132,7 +132,19 @@ def plot_trials_result(gsteps,betas,Nmaxs,FE_types,TEST_NAME) :
 		f.write("set output 'export/trials/"+TEST_NAME+"/images/"+test_name+"_J'\n")
 		f.write("plot 'export/trials/"+TEST_NAME+"/"+test_name+"_J.txt' lw 3 lc 'blue' title 'Cost Functional'\n")
 
+		f.write("set output 'export/trials/"+TEST_NAME+"/images/"+test_name+"_tJ'\n")
+		f.write("plot 'export/trials/"+TEST_NAME+"/"+test_name+"_tJ.txt' lw 3 lc 'blue' title 'Cost Functional'\n")
 
+	f.write("\n\n")
+
+	# Plot all in one window 
+	f.write("set output 'export/trials/"+TEST_NAME+"/images/all_J\n")
+	f.write("plot ")
+	for (gstep,beta,Nmax,FE_type) in itertools.product(gsteps,betas,Nmaxs,FE_types) : 
+		test_name = str(Nmax)+"_"+str(beta)+"_"+str(gstep)+"_"+FE_type
+		f.write(" 'export/trials/"+TEST_NAME+"/"+test_name+"_J.txt' lw 3 title '"+test_name+"' ")
+		f.write(" , ")
+	f.write("\n")
 
 
 	f.close()
@@ -146,8 +158,6 @@ def plot_trials_result(gsteps,betas,Nmaxs,FE_types,TEST_NAME) :
 
 if __name__ == '__main__' : 
 
-	# p1_vs_p2(0.004,0.001,20)
+	run_multiple_trials([0.004, 0.008],[0.001],[5],["P1","P2"],"Test_Python")
 
-	# run_multiple_trials([0.004, 0.008],[0.001],[5],["P1"],"Test_Python")
-
-	plot_trials_result([0.004, 0.008],[0.001],[5],["P1"],"Test_Python")
+	plot_trials_result([0.004, 0.008],[0.001],[5],["P1","P2"],"Test_Python")
