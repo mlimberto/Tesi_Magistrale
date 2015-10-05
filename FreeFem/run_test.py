@@ -129,16 +129,16 @@ def plot_trials_result(gsteps,betas,Nmaxs,FE_types,TEST_NAME) :
 	f.write("\n\n")
 	for (gstep,beta,Nmax,FE_type) in itertools.product(gsteps,betas,Nmaxs,FE_types) : 
 		test_name = str(Nmax)+"_"+str(beta)+"_"+str(gstep)+"_"+FE_type
-		f.write("set output 'export/trials/"+TEST_NAME+"/images/"+test_name+"_J'\n")
+		f.write("set output 'export/trials/"+TEST_NAME+"/images/"+test_name+"_J.eps'\n")
 		f.write("plot 'export/trials/"+TEST_NAME+"/"+test_name+"_J.txt' lw 3 lc 'blue' title 'Cost Functional'\n")
 
-		f.write("set output 'export/trials/"+TEST_NAME+"/images/"+test_name+"_tJ'\n")
+		f.write("set output 'export/trials/"+TEST_NAME+"/images/"+test_name+"_tJ.eps'\n")
 		f.write("plot 'export/trials/"+TEST_NAME+"/"+test_name+"_tJ.txt' lw 3 lc 'blue' title 'Cost Functional'\n")
 
 	f.write("\n\n")
 
 	# Plot all in one window 
-	f.write("set output 'export/trials/"+TEST_NAME+"/images/all_J\n")
+	f.write("set output 'export/trials/"+TEST_NAME+"/images/all_J.eps\n")
 	f.write("plot ")
 	for (gstep,beta,Nmax,FE_type) in itertools.product(gsteps,betas,Nmaxs,FE_types) : 
 		test_name = str(Nmax)+"_"+str(beta)+"_"+str(gstep)+"_"+FE_type
