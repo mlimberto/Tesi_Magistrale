@@ -70,6 +70,7 @@ cout << "Solving the forward problem for a known ischemia" << endl;
 // Set the initial ischemia 
 // we do it through a level-set function (possibly a signed distance function)
 
+// V2in LS = -1. ; // all ischemia
 // V2in LS = 1. ; // no ischemia
 V2in LS = x ; 
 // V2in LS = sqrt((x - ischX)*(x - ischX)+(y - ischY)*(y - ischY) ) - ischR ;
@@ -144,10 +145,10 @@ cout << "Setting up the inverse problem ..." << endl;
 
 // V2in w = 1-G ; // this w corresponds to the target solution 
 // real gamma = 3.5;
-// V2in w = 1.*exp(-gamma * ((x)*(x) + (y-0.4)*(y-0.4) ) ) ; // the control function is defined only inside the heart region
-V2in w = (1. - G(x+ 0.6 , y)) ; // less ischemia
+// V2in w = 1.*exp(-gamma * ((x)*(x) + (y-0.1)*(y-0.1) ) ) ; // the control function is defined only inside the heart region
+// V2in w = (1. - G(x+ 0.6 , y)) ; // less ischemia
 // V2in w = (1. - G(x - 0.6 , y)) ; // more ischemia
-// V2in w = 0.0 ; // no ischemia
+V2in w = 0.0 ; // no ischemia
 // V2in w = 1.0 ; // all ischemia
 
 // Define extension to the torso 
