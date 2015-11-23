@@ -16,9 +16,9 @@ data.bcRob_alpha    = @(x,y,t,param)( 0.*x.*y);
 data.bcRob_fun      = @(x,y,t,param)( 0.*x.*y);
 
 % BC flag
-data.flag_dirichlet = [1 2 3];
-data.flag_neumann   = [4];
-data.flag_robin     = [];
+data.flag_dirichlet = [ 1 ];
+data.flag_neumann   = [ 2 ];
+data.flag_robin     = [ ];
 
 % diffusion
 data.diffusion = @(x,y,t,param)(1 + 0.*x.*y);

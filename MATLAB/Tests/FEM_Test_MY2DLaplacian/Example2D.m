@@ -11,8 +11,8 @@ fem = 'P1';
 
 %% Import mesh
 
-meshFileName = '../../Mesh/Square/square_coarse' ;
-%meshFileName = '../../Mesh/Square/square' ;
+% meshFileName = '../../Mesh/Square/square_coarse' ;
+meshFileName = '../../Mesh/Square/square' ;
 
 [vertices, boundaries, elements] = msh_to_Mmesh(meshFileName, 2) ;
 
@@ -31,8 +31,8 @@ figure
 pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',U(1:MESH.numVertices),'xystyle','interp',...
        'zdata',U(1:MESH.numVertices),'zstyle','continuous',...
        'colorbar','on','mesh','on');
-%colormap(jet);
-%lighting phong
+colormap(jet);
+lighting phong
 
 
 

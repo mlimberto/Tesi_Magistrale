@@ -57,12 +57,22 @@ Plane Surface(12) = {10,9};
 // Define physical entities 
 // This is done to flag appropriate regions
 
-Physical Point(1) = {1,2,3,4} ;
-Physical Point(2) = {5,6,7,8} ;
+// Dirichlet and Neumann boundaries
 
+FLAG_TORSO_BOUNDARY_DIRI = 1 ; 
+FLAG_TORSO_BOUNDARY_NEU = 2 ;
+FLAG_HEART_BOUNDARY_DIRI = 3 ;
 
-Physical Line("Heart boundary") = {1,2,3,4} ;
-Physical Line("Torso external boundary") = {5,6,7,8} ;
+Physical Line(FLAG_HEART_BOUNDARY_DIRI) = {1,2,3,4} ;
 
-Physical Surface("Heart") = {11} ;
-Physical Surface("Torso") = {12} ;
+Physical Line(FLAG_TORSO_BOUNDARY_DIRI) = {5,6,7} ;
+
+Physical Line(FLAG_TORSO_BOUNDARY_NEU) = {8} ;
+
+// Region surfaces
+
+FLAG_HEART_REGION = 10 ; 
+FLAG_TORSO_REGION = 11 ;
+
+Physical Surface(FLAG_HEART_REGION) = {11} ;
+Physical Surface(FLAG_TORSO_REGION) = {12} ;
