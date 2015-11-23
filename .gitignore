@@ -3,3 +3,4 @@ MATLAB/FEM_library/codegen/
 FreeFem/export/
 FreeFem/scripts/Trash
 MATLAB/FEM_library/ADR_mex_assembler_mex.mexmaci64
+*.m~
