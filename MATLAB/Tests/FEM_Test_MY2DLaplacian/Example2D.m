@@ -1,6 +1,6 @@
 %EXAMPLE2D shows how to solve a problem with the FEM library.
 
-clc
+% clc
 % clear all
 
 % Add path to FE solver
@@ -18,8 +18,8 @@ meshFileName = '../../Mesh/Square/square' ;
 
 %% Visualize mesh
 
-pdeplot(vertices,[],elements(1:3,:))
-axis equal
+% pdeplot(vertices,[],elements(1:3,:))
+% axis equal
 
 %% Assemble matrix and solve problem
 
@@ -33,7 +33,6 @@ pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',U(1:MESH.numVertices),'xy
        'colorbar','on','mesh','on');
 colormap(jet);
 lighting phong
-
 
 
 
