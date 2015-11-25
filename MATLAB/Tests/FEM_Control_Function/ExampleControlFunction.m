@@ -12,8 +12,8 @@ fem = 'P2';
 
 %% Import mesh
 
-meshFileName = '../../Mesh/Square/square_coarse' ;
-% meshFileName = '../../Mesh/Square/square' ;
+% meshFileName = '../../Mesh/Square/square_coarse' ;
+meshFileName = '../../Mesh/Square/square' ;
 
 [vertices, boundaries, elements] = msh_to_Mmesh(meshFileName, 2) ;
 
@@ -88,16 +88,27 @@ fprintf(' * Number of Nodes           = %d \n',MESH.numNodes);
 fprintf(' * Number of inner Nodes     = %d \n',MESH.numInnerNodes);
 
 
-%% Define a control function and extend it to the outer boundary
+%% Define a control function 
 
-w = ones( MESH.numInnerNodes , 1 ) ; 
+ExampleLS ; % import circular level-set function
+
+tau = 0.2 ;
+w = LS( MESH.innerNodes(1,:) , MESH.innerNodes(2,:) ) ;
+w = 1 - smoothLS(w , tau) ;
+
+
+
+
+%% Extend the control function to the outer boundary
 
 wbar = extend_with_zero( w , MESH) ; 
 
 %  Visualize wbar
 figure
-pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
-       'colorbar','on','mesh','on');
+pdeplot(MESH.vertices,[],MESH.elements(1:3,:) ,'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
+        'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
+        'colorbar','on','mesh','on');
+title('Extended control function')
 colormap(jet);
 
 % USEFUL REMARK : the first MESH.numVertices elements of MESH.nodes
