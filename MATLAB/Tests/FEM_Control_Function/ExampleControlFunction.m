@@ -97,8 +97,6 @@ w = LS( MESH.innerNodes(1,:) , MESH.innerNodes(2,:) ) ;
 w = 1 - smoothLS(w , tau) ;
 
 
-
-
 %% Extend the control function to the outer boundary
 
 wbar = extend_with_zero( w , MESH) ; 
