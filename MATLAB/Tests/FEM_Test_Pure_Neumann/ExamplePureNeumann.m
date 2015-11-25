@@ -16,12 +16,27 @@ meshFileName = '../../Mesh/Square/square_coarse' ;
 
 [vertices, boundaries, elements] = msh_to_Mmesh(meshFileName, 2) ;
 
+% Add flags to identify mesh elements (in accordance with .geo file)
+
+FLAG_HEART_REGION = 10 ;
+FLAG_TORSO_REGION = 11 ;
+
 %% Visualize mesh
 
+%  figure
 %  pdeplot(vertices,[],elements(1:3,:))
 %  axis equal
 
-%% Set parameters
+figure
+pdeplot(vertices , [] , elements(1:3 ,elements(4,:)==FLAG_HEART_REGION ) ) ;
+title('Heart domain') ;
+
+figure
+pdeplot(vertices , [] , elements(1:3 ,elements(4,:)==FLAG_TORSO_REGION ) ) ;
+title('Torso domain') ;
+
+
+%% Set parameters from file
 data_file = 'DirichletNeumann_data' ;
 
 DATA   = read_DataFile(data_file);
@@ -96,8 +111,8 @@ fprintf('done in %3.3f s', t_assembly);
 
 %% Apply boundary conditions
 fprintf('\n Apply boundary conditions ');
-[A_in, F_in, u_D]   =  ApplyBC_2D(A, F, FE_SPACE, MESH, DATA);
 
+[A_in, F_in, u_D]   =  ApplyBC_2D(A, F, FE_SPACE, MESH, DATA);
 
 %% Solve
 fprintf('\n Solve Au = f ... ');
