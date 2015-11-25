@@ -5,6 +5,7 @@ clear all
 
 % Add path to FE solver
 addpath('../../FEM_library/')
+addpath('../../Inverse_Problem/')
 
 % Define which elements to use
 fem = 'P2';
@@ -87,7 +88,20 @@ fprintf(' * Number of Nodes           = %d \n',MESH.numNodes);
 fprintf(' * Number of inner Nodes     = %d \n',MESH.numInnerNodes);
 
 
-%% 
+%% Define a control function and extend it to the outer boundary
+
+w = ones( MESH.numInnerNodes , 1 ) ; 
+
+wbar = extend_with_zero( w , MESH) ; 
+
+%  Visualize wbar
+figure
+pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
+       'colorbar','on','mesh','on');
+colormap(jet);
+
+% USEFUL REMARK : the first MESH.numVertices elements of MESH.nodes
+% correspond to MESH.vertices !!! 
 
 
 
