@@ -2,8 +2,18 @@
 %   Copyright (c) 2015, Ecole Polytechnique Fédérale de Lausanne (EPFL)
 %   Author: Federico Negri <federico.negri at epfl.ch> 
 
+% Physiological and geometrical parameters
 
 data.heartLS = @(x,y)( max( abs(x) , abs(y) ) - 1 ) ;
+
+data.M0 = 0.03 ;
+data.Mi = 3.0  ; 
+data.Me = 2.0  ;
+
+data.vTr_i = -60 ;  
+data.vTr_e = -90 ;
+
+data.coeffRhs = -1. * (data.vTr_i - data.vTr_e )*data.Mi ;
 
 % Source term
 % data.force = @(x,y,t,param)(0.5*pi^2*(sin(0.5*pi*x).*sin(0.5*pi*y)));
@@ -26,10 +36,8 @@ data.flag_neumann   = [1 2];
 data.flag_robin     = [ ];
 
 % diffusion
-data.M0 = 1 ; 
-data.Mh = 4 ;
 data.tauDiff = 0.08 ;
-data.diffusion = @(x,y,t,param)( data.M0 + (data.Mh - data.M0)*( 1 - smoothLS( data.heartLS(x,y) , data.tauDiff) ) + 0.*x.*y);
+data.diffusion = @(x,y,t,param)( data.M0 + (data.Mi + data.Me - data.M0)*( 1 - smoothLS( data.heartLS(x,y) , data.tauDiff) ) + 0.*x.*y);
 
 % transport vector (first and second components)
 data.trasport{1} = @(x,y,t,param)(0 + 0.*x.*y);
