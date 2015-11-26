@@ -1,4 +1,4 @@
-%EXAMPLE2D shows how to solve a Pure Neumann problem with the FEM library.
+%EXAMPLESOURCETERM shows how to define the source term with \int{ \nabla w \nabla \phi }
 
 % clc
 % clear all
@@ -155,10 +155,21 @@ fprintf('done in %3.3f s\n', t_assembly);
 
 %% Assemble rhs matrix 
 fprintf('\n Assembling source term matrix ... ');
-t_assembly = tic;
+t_assembly_source = tic;
 A_source             =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [1 1] , [] );
-t_assembly = toc(t_assembly);
-fprintf('done in %3.3f s\n', t_assembly);
+t_assembly_source = toc(t_assembly_source);
+fprintf('done in %3.3f s\n', t_assembly_source);
+
+% REMARK Since w_bar is zero on the torso, we could just assemble the
+% matrix on the heart subdomain using the expression
+% Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [1 1] , [] ,
+% FLAG_HEART_REGION ) ;
+
+% Check that the source term in this case is the same
+A_test = Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [1 1] , [] , FLAG_HEART_REGION ) ;
+sourceError=  norm( A_test * wbar - A_source * wbar ) ;
+assert( sourceError < 1e-14 );
+clear A_test
 
 %% Evaluate rhs 
 
@@ -172,6 +183,7 @@ pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',Ff(1:MESH.numVertices),'x
        'colorbar','on','mesh','on');
 colormap(jet);
 lighting phong
+title('Source term')
 clear Ff
 
 %% Apply boundary conditions
@@ -194,6 +206,7 @@ pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',u(1:MESH.numVertices),'xy
        'zdata',u(1:MESH.numVertices),'zstyle','continuous',...
        'colorbar','on','mesh','on');
 colormap(jet);
+title('Solution')
 lighting phong
 
 
