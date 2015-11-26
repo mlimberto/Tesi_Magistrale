@@ -13,14 +13,15 @@ data.force = @(x,y,t,param)( 0*x.*y) ;
 % Neumann
 % data.bcNeu = @(x,y,t,param)(- 2*pi*(cos(2*pi*x).*sin(2*pi*y)) + 0.*x.*y);
 data.bcNeu = @(x,y,t,param)(1+ 0*x.*y );
+% data.bcNeu = @(x,y,t,param)( 0*x.*y );
 
 % Robin
 % data.bcRob_alpha    = @(x,y,t,param)( 0.*x.*y);
 % data.bcRob_fun      = @(x,y,t,param)( 0.*x.*y);
 
 % BC flag
-data.flag_dirichlet = [2];
-data.flag_neumann   = [1];
+data.flag_dirichlet = [];
+data.flag_neumann   = [1 2];
 data.flag_robin     = [ ];
 
 % diffusion
@@ -31,12 +32,13 @@ data.trasport{1} = @(x,y,t,param)(0 + 0.*x.*y);
 data.trasport{2} = @(x,y,t,param)(0 + 0.*x.*y);
 
 % reaction
-data.reaction = @(x,y,t,param)(0 + 0.*x.*y);
+% data.reaction = @(x,y,t,param)(0 + 0.*x.*y);
+data.reaction = @(x,y,t,param)(1 + 0.*x.*y);
 
 
 % exact solution    = @(x,y,t,param)( 1 + 0*x.*y );
-data.uexact         = @(x,y,t,param)( sin(0.5*pi*x).*sin(0.5*pi*y));
-data.uxexact        = @(x,y,t,param)( 0.5*pi*(cos(0.5*pi*x).*sin(0.5*pi*y)));
-data.uyexact        = @(x,y,t,param)( 0.5*pi*(sin(0.5*pi*x).*cos(0.5*pi*y)));
+data.uexact         = @(x,y,t,param)( 0*x.*y );
+data.uxexact        = @(x,y,t,param)( 0*x.*y );
+data.uyexact        = @(x,y,t,param)( 0*x.*y );
 
 

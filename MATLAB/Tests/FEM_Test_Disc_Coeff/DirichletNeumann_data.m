@@ -35,7 +35,8 @@ data.trasport{1} = @(x,y,t,param)(0 + 0.*x.*y);
 data.trasport{2} = @(x,y,t,param)(0 + 0.*x.*y);
 
 % reaction
-data.reaction = @(x,y,t,param)(0 + 0.*x.*y);
+% data.reaction = @(x,y,t,param)(0 + 0.*x.*y);
+data.reaction = @(x,y,t,param)(1 + 0.*x.*y);
 
 
 % exact solution    = @(x,y,t,param)( 1 + 0*x.*y );

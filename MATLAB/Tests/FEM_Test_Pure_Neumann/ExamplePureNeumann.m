@@ -22,19 +22,16 @@ FLAG_HEART_REGION = 10 ;
 FLAG_TORSO_REGION = 11 ;
 
 %% Visualize mesh
-
 %  figure
 %  pdeplot(vertices,[],elements(1:3,:))
 %  axis equal
-
-figure
-pdeplot(vertices , [] , elements(1:3 ,elements(4,:)==FLAG_HEART_REGION ) ) ;
-title('Heart domain') ;
-
-figure
-pdeplot(vertices , [] , elements(1:3 ,elements(4,:)==FLAG_TORSO_REGION ) ) ;
-title('Torso domain') ;
-
+% figure
+% pdeplot(vertices , [] , elements(1:3 ,elements(4,:)==FLAG_HEART_REGION ) ) ;
+% title('Heart domain') ;
+% 
+% figure
+% pdeplot(vertices , [] , elements(1:3 ,elements(4,:)==FLAG_TORSO_REGION ) ) ;
+% title('Torso domain') ;
 
 %% Set parameters from file
 data_file = 'DirichletNeumann_data' ;
@@ -104,7 +101,7 @@ fprintf('-------------------------------------------\n');
 %% Assemble matrix and right-hand side
 fprintf('\n Assembling ... ');
 t_assembly = tic;
-[A, F]              =  Assembler_2D(MESH, DATA, FE_SPACE);
+[A, F]              =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
 t_assembly = toc(t_assembly);
 fprintf('done in %3.3f s', t_assembly);
 
@@ -114,11 +111,19 @@ fprintf('\n Apply boundary conditions ');
 
 [A_in, F_in, u_D]   =  ApplyBC_2D(A, F, FE_SPACE, MESH, DATA);
 
+%% Impose zero-mean condition
+A_react = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' ) ; 
+B = A_react * ones( MESH.numNodes , 1 ) ; 
+
+A_total = [ A_in , B ; B' , 0 ] ; 
+F_total = [ F_in ; 0 ] ; 
+
 %% Solve
 fprintf('\n Solve Au = f ... ');
 t_solve = tic;
 u                         = zeros(MESH.numNodes,1);
-u(MESH.internal_dof)      = A_in \ F_in;
+u_total = A_total \ F_total ; 
+u(MESH.internal_dof)      = u_total(1 : end -1 ) ;
 u(MESH.Dirichlet_dof)     = u_D;t_solve = toc(t_solve);
 fprintf('done in %3.3f s \n', t_solve);
 
@@ -130,6 +135,12 @@ pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',u(1:MESH.numVertices),'xy
        'colorbar','on','mesh','on');
 colormap(jet);
 lighting phong
+axis equal
+
+%% Compute L2 and H1 error
+
+[errorL2,errorH1] = error2D(u, MESH, DATA, FE_SPACE);
+    fprintf(' L2-error : %e H1-error : %e\n',errorL2, errorH1);
 
 
 
