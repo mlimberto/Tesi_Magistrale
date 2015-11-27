@@ -6,9 +6,10 @@ clear all
 % Add path to FE solver
 addpath('../../FEM_library/')
 addpath('../../Inverse_Problem/')
+addpath('../../Inverse_Problem/Examples/')
 
 % Define which elements to use
-fem = 'P2';
+fem = 'P1';
 
 %% Import mesh
 
@@ -98,10 +99,13 @@ fprintf(' * Number of inner Nodes     = %d \n',MESH.numInnerNodes);
 
 %% Define a control function 
 
-ExampleLS ; % import circular level-set function
+tau = 0.2 ; % smoothing level
 
-tau = 0.2 ;
-w = LS( MESH.innerNodes(1,:) , MESH.innerNodes(2,:) ) ;
+% Since we use a level set we define radius and center coordinates
+R = 0.4 ; % radius
+D = [1 0]; % displacement
+
+w = circularLS( MESH.innerNodes(1,:) , MESH.innerNodes(2,:) , R , D ) ;
 w = 1 - smoothLS(w , tau) ;
 
 % Visualize w
@@ -110,7 +114,7 @@ H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w' ) ;
 figure
 surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
 shading interp ; colormap jet ; title('Control function') ; axis equal ;
-
+clear H ; clear X ; clear Y ; 
 
 
 %% Extend the control function to the outer boundary
@@ -174,7 +178,7 @@ fprintf('done in %3.3f s', t_assembly);
 %% Assemble rhs matrix 
 fprintf('\n Assembling source term matrix ... ');
 t_assembly_source = tic;
-A_source             =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] );
+A_source             =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , FLAG_HEART_REGION );
 t_assembly_source = toc(t_assembly_source);
 fprintf('done in %3.3f s\n', t_assembly_source);
 
@@ -182,13 +186,14 @@ fprintf('done in %3.3f s\n', t_assembly_source);
 
 F_source = DATA.coeffRhs * A_source * wbar ;
 
-% Visualize source term 
+% Visualize rhs term 
 figure
 pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',F_source(1:MESH.numVertices),'xystyle','interp',...
        'zdata',F_source(1:MESH.numVertices),'zstyle','continuous',...
        'colorbar','on', 'mesh' , 'off' );
 colormap(jet);
 lighting phong
+title('Source term')
 
 %% Apply boundary conditions
 
