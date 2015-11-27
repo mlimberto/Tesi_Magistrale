@@ -8,7 +8,7 @@ addpath('../../FEM_library/')
 addpath('../../Inverse_Problem/')
 
 % Define which elements to use
-fem = 'P1';
+fem = 'P2';
 
 %% Import mesh
 
@@ -105,11 +105,11 @@ w = LS( MESH.innerNodes(1,:) , MESH.innerNodes(2,:) ) ;
 w = 1 - smoothLS(w , tau) ;
 
 % Visualize w
-% H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w' ) ; 
-% [X,Y] = meshgrid(-1:0.02:1) ; 
-% figure
-% surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-% shading interp ; colormap jet ; title('Control function') ; axis equal ;
+H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w' ) ; 
+[X,Y] = meshgrid(-1:0.02:1) ; 
+figure
+surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
+shading interp ; colormap jet ; title('Control function') ; axis equal ;
 
 
 
@@ -174,7 +174,7 @@ fprintf('done in %3.3f s', t_assembly);
 %% Assemble rhs matrix 
 fprintf('\n Assembling source term matrix ... ');
 t_assembly_source = tic;
-A_source             =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [1 1] , [] );
+A_source             =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] );
 t_assembly_source = toc(t_assembly_source);
 fprintf('done in %3.3f s\n', t_assembly_source);
 
