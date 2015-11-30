@@ -318,11 +318,7 @@ colormap(jet); lighting phong ; title('Solution of state problem u')
 
 A_adj = A' ; 
 
-%% Evaluate volume source term 
-
-F_adj = zeros(size(A_adj,1),1);
-
-%% Apply Neumann boundary conditions
+%% Evaluate rhs term
 
 F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
 

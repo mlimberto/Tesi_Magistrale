@@ -31,9 +31,9 @@ end
     
 % Then we evaluate the function we wish to integrate at quadrature nodes
 H = scatteredInterpolant( MESH.nodes(1,:)' , MESH.nodes(2,:)' , f) ;
-u_Neumann = H(xlt,ylt);
+f_value = H(xlt,ylt);
 one       = ones(nof,nqn);
-u_Neumann = u_Neumann.*one;
+f_value = f_value.*one;
     
 x    =  MESH.vertices(1,MESH.boundaries(1:2, selected_boundary));
 y    =  MESH.vertices(2,MESH.boundaries(1:2, selected_boundary));
@@ -42,7 +42,7 @@ y    =  MESH.vertices(2,MESH.boundaries(1:2, selected_boundary));
     
     for l = 1 : nof
         
-        u_Neumann_loc  = u_Neumann(l,:).*wi;
+        u_Neumann_loc  = f_value(l,:).*wi;
         u_Neumann_loc  = u_Neumann_loc(1,:)';
         I    = I + side_length(l)*ones( 1, FE_SPACE.quad_order )*u_Neumann_loc ;
     end
