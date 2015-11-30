@@ -53,4 +53,8 @@ data.uexact         = @(x,y,t,param)( 0*x.*y );
 data.uxexact        = @(x,y,t,param)( 0*x.*y );
 data.uyexact        = @(x,y,t,param)( 0*x.*y );
 
+% Penalisation coefficient
+data.beta = 1e-4 ; 
 
+% Gradient step 
+data.gstep = 1e-3 ; 

@@ -14,7 +14,7 @@ addpath('../../Inverse_Problem/Examples/')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Define which elements to use
-fem = 'P1';
+fem = 'P2';
 
 %% Import mesh
 
@@ -144,7 +144,7 @@ tau = 0.2 ; % smoothing level
 R = 0.4 ; % radius
 D = [1.1 0]; % displacement
 
-w = circularLS( MESH.innerNodes(1,:) , MESH.innerNodes(2,:) , R , D ) ;
+w = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w = 1 - smoothLS(w , tau) ;
 
 % Extend the control function to the outer boundary
@@ -220,7 +220,7 @@ tau = 0.2 ; % smoothing level
 R = 0.4 ; % radius
 D = [0 0]; % displacement
 
-w = circularLS( MESH.innerNodes(1,:) , MESH.innerNodes(2,:) , R , D ) ;
+w = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w = 1 - smoothLS(w , tau) ;
 
 % Extend the control function to the outer boundary
@@ -228,7 +228,7 @@ w = 1 - smoothLS(w , tau) ;
 wbar = extend_with_zero( w , MESH) ; 
 
 % Visualize w
-H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w' ) ; 
+H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
 [X,Y] = meshgrid(-1:0.02:1) ; 
 figure
 surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
