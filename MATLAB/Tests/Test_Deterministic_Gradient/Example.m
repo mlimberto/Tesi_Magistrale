@@ -9,7 +9,7 @@ addpath('../../Inverse_Problem/')
 addpath('../../Inverse_Problem/Examples/')
 
 % Plotting settings
-PLOT_ALL = 1 ; % 1 or 0 value
+PLOT_ALL = 0 ; % 1 or 0 value
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Part 1 : Mesh and Parameters
@@ -122,10 +122,10 @@ fprintf('-------------------------------------------\n');
 
 % Assemble stiffness matrix for forward problem
 fprintf('\n Assembling state matrix ... ');
-t_assembly = tic;
+t_assembly_fwd = tic;
 A_fwd              =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
-t_assembly = toc(t_assembly);
-fprintf('done in %3.3f s\n', t_assembly);
+t_assembly_fwd = toc(t_assembly_fwd);
+fprintf('done in %3.3f s\n', t_assembly_fwd);
 
 % Assemble rhs matrix for forward problem
 fprintf('\n Assembling source term matrix ... ');
@@ -143,6 +143,23 @@ t_assembly_zeroMean = toc(t_assembly_zeroMean);
 fprintf('done in %3.3f s\n', t_assembly_zeroMean);
 clear A_react ;
 
+% Assemble lhs matrix for gradient computation
+fprintf('\n Assembling lhs matrix for gradient computation ... ');
+t_assembly_grad = tic;
+% reaction part ( i.e. L2 product )
+A_grad_L2 = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' , [] , [] , DATA.FLAG_HEART_REGION ) ; 
+% diffusion part ( i.e. H_0^1 product has already been assembled and it's called A_source_fwd)
+A_grad_H01 = A_source_fwd ; 
+A_grad = A_grad_L2 + A_grad_H01 ; 
+t_assembly_grad = toc(t_assembly_grad);  fprintf('done in %3.3f s\n', t_assembly_grad);
+% clear A_grad_H01 ; clear A_grad_L2 ;
+
+% Assemble rhs gradient matrix
+    % We wish to assemble the matrix evaluating the source term B' * p 
+    % We can obtain it again from the A_source_fwd matrix
+A_tBp = - DATA.coeffRhs * A_source_fwd ; 
+
+fprintf('\nTotal assembling time : %3.3f s\n', t_assembly_fwd + t_assembly_source + t_assembly_zeroMean + t_assembly_grad);
 
 %% Target solution
 
@@ -233,8 +250,10 @@ tau = 0.2 ; % smoothing level
 R = 0.4 ; % radius
 D = [0 0]; % displacement
 
-w0 = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
-w0 = 1 - smoothLS(w0 , tau) ;
+% w0 = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
+% w0 = 1 - smoothLS(w0 , tau) ;
+
+w0 = zeros(MESH.numInnerNodes , 1);
 
 w = w0 ;
 wbar = extend_with_zero( w , MESH) ; 
@@ -262,7 +281,9 @@ end
 
 %% Loop 
 
-iterMax = 1 ; 
+J = [] ;
+
+iterMax = 10000 ; 
 
 for i=1:iterMax 
    
@@ -286,9 +307,10 @@ for i=1:iterMax
         colormap(jet); lighting phong ; title('Solution of state problem u') 
     end
     
-    % ADJOINT PROBLEM
-    fprintf('\n Solving the forward problem ... ');
     
+    % ADJOINT PROBLEM
+    fprintf('\n Solving the adjoint problem ... ');
+
     F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
 
     t_solve = tic;
@@ -305,12 +327,49 @@ for i=1:iterMax
         colormap(jet); lighting phong ; title('Solution of state problem u') 
     end   
     
+    
+    % EVALUATE OBJECTIVE FUNCTION
+    J = [ J ; eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj , A_grad ) ] ;
+    
+    fprintf('\n J = %3.3f \n ',J(end) );
+    
+    
     % GRADIENT OF W
     fprintf('\n Solving for the gradient of w ... ');
 
+    F_grad = A_tBp * p ; 
     
+    t_solve = tic;
+    dw = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
+    t_solve = toc(t_solve); fprintf('done in %3.3f s \n', t_solve); 
     
+    if (PLOT_ALL)
+    dwbar = extend_with_zero( dw , MESH ) ; 
+    figure
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',dwbar(1:MESH.numVertices),'xystyle','interp',...
+       'zdata',dwbar(1:MESH.numVertices),'zstyle','continuous',...
+       'colorbar','on', 'mesh' , 'off' );
+    colormap(jet);
+    lighting phong
+    title('Control derivative Riesz element')
+    end
+        
     % UPDATE W
+    w_new = w - DATA.gstep *( DATA.beta* w + dw  ) ;
+    w =  min( 1 , max( 0 , w_new )) ;
+    wbar = extend_with_zero( w , MESH) ;
     
+%     if (PLOT_ALL)
+    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
+    [X,Y] = meshgrid(-1:0.02:1) ; 
+    figure(92)
+    surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
+    shading interp ; colormap jet ; title('Ischemia location') ; axis equal ;
+    clear H ; clear X ; clear Y ; 
+    drawnow
+%     end    
+
+    
+
 end
 

@@ -76,7 +76,7 @@ title('Control derivative Riesz element')
 %% Update w 
 
 % Apply gradient step
-w_new = ( 1 - DATA.beta )*w - DATA.gstep * dw ; 
+w_new = ( 1 - DATA.beta*DATA.gstep )*w - DATA.gstep * dw ; 
 
 % Visualize it
 H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w_new ) ; 

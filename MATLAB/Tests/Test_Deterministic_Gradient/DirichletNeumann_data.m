@@ -57,7 +57,7 @@ data.uyexact        = @(x,y,t,param)( 0*x.*y );
 data.beta = 1e-4 ; 
 
 % Gradient step 
-data.gstep = 1e-3 ; 
+data.gstep = 1e-4; 
 
 % Add flags to identify mesh elements (in accordance with .geo file)
 data.FLAG_HEART_REGION = 10 ;
