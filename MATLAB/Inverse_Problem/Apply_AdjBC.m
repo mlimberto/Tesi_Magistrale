@@ -1,4 +1,4 @@
-function [ F_in ] = Apply_AdjBC( A , FE_SPACE , MESH , f  )
+function [ F_in ] = Apply_AdjBC( FE_SPACE , MESH , f  )
 %APPLY_ADJBC Applies the Neumann boundary condition to the adjoint problem
 %matrix
 %   We use it to evaluate the rhs term (boundary integral of u - zd)

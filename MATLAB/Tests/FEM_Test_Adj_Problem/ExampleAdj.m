@@ -324,7 +324,7 @@ F_adj = zeros(size(A_adj,1),1);
 
 %% Apply Neumann boundary conditions
 
-F_adj = Apply_AdjBC( A_adj , FE_SPACE , MESH , zd - u ) ;
+F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
 
 %% Impose zero-mean condition and solve 
 
