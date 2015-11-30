@@ -58,3 +58,14 @@ data.beta = 1e-4 ;
 
 % Gradient step 
 data.gstep = 1e-3 ; 
+
+% Add flags to identify mesh elements (in accordance with .geo file)
+data.FLAG_HEART_REGION = 10 ;
+data.FLAG_TORSO_REGION = 11 ;
+
+data.FLAG_TORSO_BOUNDARY_DIRI = 1 ; 
+data.FLAG_TORSO_BOUNDARY_NEU = 2 ;
+data.FLAG_HEART_BOUNDARY = 3 ;
+
+
+

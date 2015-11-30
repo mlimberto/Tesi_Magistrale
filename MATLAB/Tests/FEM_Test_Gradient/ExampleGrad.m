@@ -94,5 +94,5 @@ H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w_new 
 [X,Y] = meshgrid(-1:0.02:1) ; 
 figure
 surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-shading interp ; colormap jet ; title('Control function') ; axis equal ;
+shading interp ; colormap jet ; title('Updated control function') ; axis equal ;
 clear H ; clear X ; clear Y ; 
