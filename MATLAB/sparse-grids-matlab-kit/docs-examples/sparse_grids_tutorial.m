@@ -483,7 +483,7 @@ Sr= reduce_sparse_grid(S);
 evals_plain_fs=evaluate_on_sparse_grid(fs,Sr);
 evals_plain_fv=evaluate_on_sparse_grid(fv,Sr);
 
-% a direct computation
+% a direct computationeva
 pts = size(Sr.knots,2);
 
 os=size(fs(Sr.knots(:,1)),1);
