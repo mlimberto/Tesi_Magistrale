@@ -121,7 +121,7 @@ U = evaluate_on_sparse_grid( f , Sr ) ;
 t_evaluation = toc(t_evaluation);
 fprintf('\nEvaluation done in %3.3f seconds.\n\n' , t_evaluation) ;
 
-%% Do the same thinf in parallel
+%% Do the same thing in parallel
 
 if ~check_if_parallel_on()
     activate_parallel() % optional argument to specify how many workers
