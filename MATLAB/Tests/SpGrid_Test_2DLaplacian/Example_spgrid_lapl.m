@@ -1,8 +1,8 @@
 %EXAMPLE_SPGRID_LAPL shows how to solve a laplacian with the FEM library 
 % but the location of the source term is random (uniformly sampled)
 
-% clc
-% clear all
+clc
+clear all
 
 % Add path to FE solver
 addpath('../../FEM_library/')
@@ -90,8 +90,8 @@ fprintf('-------------------------------------------\n');
 % We use a sparse grid to discretize this space
 
 N=2; % approximation of two variables
-knots=@(n) knots_CC(n,-1,1,'nonprob'); % knots
-w = 2; %level
+knots=@(n) knots_CC(n,-1,1,'prob'); % knots
+w = 4; %level
 
 [ lev2knots , idxset ] = define_functions_for_rule( 'SM' , N ) ;
 
@@ -110,14 +110,48 @@ Q = size(Sr.knots , 2 ) ;
 
 U = [] ;
 
-for i = 1:Q
-    source_location = Sr.knots( : , i) ;
-    
-    u = solveDiffusion( MESH  , FE_SPACE , DATA , source_location ) ;
-    
-    U = [ U u ] ;
-    
+fprintf('\nSolving laplacian on grid nodes ...\n') ;
+
+t_evaluation = tic ; 
+
+f = @(x) solveDiffusion( MESH , FE_SPACE , DATA , x) ;
+
+U = evaluate_on_sparse_grid( f , Sr ) ;
+
+t_evaluation = toc(t_evaluation);
+fprintf('\nEvaluation done in %3.3f seconds.\n\n' , t_evaluation) ;
+
+%% Do the same thinf in parallel
+
+if ~check_if_parallel_on()
+    activate_parallel() % optional argument to specify how many workers
 end
+
+U = [] ;
+
+min_eval = 10; % minimum number of evaluations required to solve in parallel
+
+fprintf('\nSolving laplacian on grid nodes in parallel ...\n') ;
+
+t_evaluation = tic ; 
+
+f = @(x) solveDiffusion( MESH , FE_SPACE , DATA , x) ;
+
+U = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ;
+
+t_evaluation = toc(t_evaluation);
+fprintf('\nEvaluation done in %3.3f seconds.\n\n' , t_evaluation) ;
+
+
+if check_if_parallel_on()
+    close_parallel()
+end
+
+
+
+%% Plot some solutions
+
+fprintf('Plotting solutions ...\n') ;
 
 figure
 for i  =1:3
@@ -132,5 +166,18 @@ for i  =1:3
     end
 end
 
+%% Test quadrature formulas on sparse grid
 
+% Calculate expectation of temperature
+
+Eu = U * Sr.weights' ; 
+
+% Plot it 
+
+figure
+pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',Eu(1:MESH.numVertices),'xystyle','interp',...
+        'zdata',Eu(1:MESH.numVertices),'zstyle','continuous',...
+        'colorbar','on','mesh','on');
+colormap(jet); title('Expectation of temperature in the room')
+lighting phong
 

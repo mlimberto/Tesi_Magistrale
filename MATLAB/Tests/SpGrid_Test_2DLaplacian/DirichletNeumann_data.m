@@ -5,6 +5,7 @@
 % Source term
 data.force = @(x,y,t,param)(0.5*pi^2*(sin(0.5*pi*x).*sin(0.5*pi*y)));
 % data.force = @(x,y,t,param)( 0*x.*y) ;
+data.force = @(x,y,t,param) 5 * exp( 10 * ( -1*(x-param(1)).*(x-param(1)) -1*(y-param(2)).*(y-param(2)) ) ) ;
 
 % Dirichlet
 % data.bcDir = @(x,y,t,param)(sin(0.5*pi*x).*sin(0.5*pi*y) + 0*x.*y);  

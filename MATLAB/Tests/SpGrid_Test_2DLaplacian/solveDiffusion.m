@@ -3,14 +3,12 @@ function [ u ] = solveDiffusion( MESH , FE_SPACE , DATA , source_location )
     % Set source term according to input parameter
 
     if nargin<4 || isempty(source_location)
-        xC = 0;
-        yC = 0;
+        DATA.param = [0 ; 0 ];
     else
-        xC = source_location(1) ;
-        yC = source_location(2) ;
+        DATA.param = [ source_location(1) ; source_location(2) ] ;
     end
   
-    DATA.force = @(x,y,t,param) 5 * exp( 10 * ( -1*(x-xC).*(x-xC) -1*(y-yC).*(y-yC) ) ) ;
+%     DATA.force = @(x,y,t,param) 5 * exp( 10 * ( -1*(x-xC).*(x-xC) -1*(y-yC).*(y-yC) ) ) ;
 
 
     % Assemble matrix and right-hand side
