@@ -17,6 +17,9 @@ addpath( genpath( '../../sparse-grids-matlab-kit/' ) )
 % Define which elements to use
 fem = 'P1';
 
+% Verbosity variable
+PLOT_ALL = 0 ;
+
 %% Physical domain
 
 % meshFileName = '../../Mesh/Square/square_coarse' ;
@@ -106,6 +109,58 @@ fprintf(' * Number of Elements  = %d \n',MESH.numElem);
 fprintf(' * Number of Nodes     = %d \n',MESH.numNodes);
 fprintf('-------------------------------------------\n');
 
+
+%% Target solution
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Part 3 : Solve the fwd problem to find zd
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Remark : there are two ways to evalaute zd : either we 
+% take the expectation of zd for different parameters
+% (which is mathematically correct ) or we consider 
+% a specific combination of parameters, which is 
+% biologically more suitable
+
+fprintf('\n Evaluating target solution zd ... \n');
+
+% Define a target control function 
+
+tau = 0.2 ; % smoothing level
+R = 0.4 ; % radius
+D = [1.0 0]; % displacement
+
+w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
+w_target = 1 - smoothLS(w_target , tau) ;
+
+w = w_target ;
+% Extend the control function to the outer boundary
+
+wbar = extend_with_zero( w , MESH) ; 
+
+% Visualize w
+if (PLOT_ALL)
+    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
+    [X,Y] = meshgrid(-1:0.02:1) ; 
+    figure
+    surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
+    shading interp ; colormap jet ; title('Target control function') ; axis equal ;
+    clear H ; clear X ; clear Y ; 
+end
+
+% Compute solution
+zd = solveFwdHandler( MESH , FE_SPACE , DATA , w , [ 0.03 3.0 ] ) ; 
+
+if (PLOT_ALL)
+    figure
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',zd(1:MESH.numVertices),'xystyle','interp',...
+       'zdata',zd(1:MESH.numVertices),'zstyle','continuous',...
+       'colorbar','on', 'mesh' , 'off'  );
+    colormap(jet); lighting phong; title('Target solution z_d')
+%     axis equal
+end
+
+
 %% Control function
 
 tau = 0.2 ; % smoothing level
@@ -125,18 +180,9 @@ wbar = extend_with_zero( w , MESH) ;
     [X,Y] = meshgrid(-1:0.02:1) ; 
     figure
     surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-    shading interp ; colormap jet ; title('Target control function') ; axis equal ;
+    shading interp ; colormap jet ; title('Initial control function') ; axis equal ;
     clear H ; clear X ; clear Y ; 
 
-%% test solveFwd and solveFwdHandler
-
-% u = solveFwdHandler( MESH , FE_SPACE , DATA , w , [0.03 ; 3.0] ) ;
-% 
-% figure
-% pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',u(1:MESH.numVertices),'xystyle','interp',...
-%        'zdata',u(1:MESH.numVertices),'zstyle','continuous',...
-%        'colorbar','on', 'mesh' , 'off'  );
-% colormap(jet); lighting phong;
 
 %% Stochastic domain 
 
@@ -164,7 +210,7 @@ plot_grid(S,[],'color','b','marker','o','MarkerFaceColor','b');
 Sr = reduce_sparse_grid( S ) ;
 
 
-%% Solve forward problem on the nodes
+%% Solve forward and adjoint problem on the nodes
 
 % In order to do this we define a function handler that is responsible for
 % calling the appropriate function solveFwd 
@@ -183,20 +229,22 @@ fprintf('\nSolving laplacian on grid nodes in parallel ...\n') ;
 
 t_evaluation = tic ; 
 
-f = @(x) solveFwdHandler( MESH , FE_SPACE , DATA , w , x , [] , [] , [] ) ;
+f = @(x) solveFwdAdjHandler( MESH , FE_SPACE , DATA , w , zd , x , [] , [] , [] ) ;
 
-U = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ;
+[UP] = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ;
 
 t_evaluation = toc(t_evaluation);
 fprintf('\nEvaluation done in %3.3f seconds.\n\n' , t_evaluation) ;
 
+U = UP( 1:MESH.numNodes , : ) ;
+P = UP( (MESH.numNodes+1) : end , : ) ;
 
 if check_if_parallel_on()
     close_parallel()
 end
 
 
-%% Plot some solutions 
+%% Plot some solutions of the forward problem
 
 Npl = 3;
 
@@ -220,7 +268,24 @@ for i = 1:Npl
     end 
 end
 
+%% and of the adjoint problem
 
+% Set color limits
+climit = [ min(min( P(: , V ) )) , max(max( P(:,V) ) ) ] ;
 
+figure
+for i = 1:Npl 
+    for j = 1:Npl
+        index = V( (i-1)*Npl + j ) ;
+        subplot( Npl , Npl , (i-1)*Npl + j );
+        pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',P(1:MESH.numVertices , index ),'xystyle','interp',...
+           'zdata',P(1:MESH.numVertices , index),'zstyle','continuous',...
+           'colorbar','on', 'mesh' , 'off'  );
+        colormap(jet); lighting phong;
+        caxis(climit) ;
+        title_str=  sprintf(' Adjoint solution for M0 = %1.3f , Mi = %3.1f' , Sr.knots(1 ,index) , Sr.knots(2 , index ) ) ;
+        title(title_str);
+    end 
+end
 
-
+%% 
