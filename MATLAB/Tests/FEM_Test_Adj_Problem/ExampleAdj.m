@@ -335,6 +335,19 @@ p(MESH.internal_dof)      = p_total(1 : end -1 ) ;
 t_solve = toc(t_solve);
 fprintf('done in %3.3f s \n', t_solve);
 
+%% Solve the adjoint using the solveAdj function to see if it works properly
+
+p1 = solveAdj( MESH , FE_SPACE , DATA , w , u , zd ) ;
+
+p2 = solveAdj( MESH , FE_SPACE , DATA , w , u , zd, A_adj , B ) ;
+
+% Print error
+disp ''
+disp 'Difference of the solutions ...'
+max ( max ( abs ( p - p1 ) ) ) 
+max ( max ( abs ( p - p2 ) ) ) 
+
+
 %% Visualize solution 
 
 figure
