@@ -225,7 +225,7 @@ U = [] ;
 
 min_eval = 10; % minimum number of evaluations required to solve in parallel
 
-fprintf('\nSolving forward and adjoint problems on grid nodes in parallel ...\n') ;
+fprintf('\nSolving laplacian on grid nodes in parallel ...\n') ;
 
 t_evaluation = tic ; 
 

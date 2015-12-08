@@ -285,7 +285,7 @@ end
 
 J = [] ;
 
-iterMax = 10000 ; 
+iterMax = 50000 ; 
 
 for i=1:iterMax 
    
@@ -361,16 +361,29 @@ for i=1:iterMax
     w =  min( 1 , max( 0 , w_new )) ;
     wbar = extend_with_zero( w , MESH) ;
     
-%     if (PLOT_ALL)
+    if (PLOT_ALL)
     H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
     [X,Y] = meshgrid(-1:0.02:1) ; 
     figure(92)
     surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
     shading interp ; colormap jet ; title('Ischemia location') ; axis equal ;
+    caxis( [0 1] )
+    colorbar ;
     clear H ; clear X ; clear Y ; 
     drawnow
-%     end    
+    end    
    
+    % Save a snapshot every once in a while ... 
+    if mod( i , 10000 ) == 1 
+        H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
+        [X,Y] = meshgrid(-1:0.02:1) ; 
+        figure
+        surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
+        shading interp ; colormap jet ; title('Ischemia location') ; axis equal ;
+        clear H ; clear X ; clear Y ; 
+%         caxis( [ 0 1 ] )
+        drawnow 
+    end
 
 end
 
