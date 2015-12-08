@@ -1,4 +1,5 @@
 *.vtk
+Export/
 MATLAB/FEM_library/codegen/
 FreeFem/export/
 FreeFem/scripts/Trash
