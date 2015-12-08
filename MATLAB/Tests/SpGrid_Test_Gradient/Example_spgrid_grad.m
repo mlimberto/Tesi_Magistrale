@@ -140,7 +140,7 @@ wbar = extend_with_zero( w , MESH) ;
 
 % Visualize w
 if (PLOT_ALL)
-    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
+    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w_target ) ; 
     [X,Y] = meshgrid(-1:0.02:1) ; 
     figure
     surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
@@ -167,22 +167,23 @@ tau = 0.2 ; % smoothing level
 R = 0.4 ; % radius
 D = [0 0]; % displacement
 
-w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
-w_target = 1 - smoothLS(w_target , tau) ;
+w_init = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
+w_init = 1 - smoothLS(w_init , tau) ;
 
-w = w_target ;
+w = w_init ;
 % Extend the control function to the outer boundary
 
 wbar = extend_with_zero( w , MESH) ; 
 
 % Visualize w
+if PLOT_ALL
     H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
     [X,Y] = meshgrid(-1:0.02:1) ; 
     figure
     surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
     shading interp ; colormap jet ; title('Initial control function') ; axis equal ;
     clear H ; clear X ; clear Y ; 
-
+end
 
 %% Stochastic domain 
 
@@ -287,3 +288,72 @@ for i = 1:Npl
         title(title_str);
     end 
 end
+
+%%  Assemble gradient matrices
+
+% reaction part ( i.e. L2 product )
+A_grad_L2 = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' , [] , [] , DATA.FLAG_HEART_REGION ) ; 
+
+% diffusion part ( i.e. H_0^1 product )
+A_grad_H01          =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
+
+A_grad = A_grad_L2 + A_grad_H01 ; 
+t_assembly_grad = toc(t_assembly_grad);  fprintf('done in %3.3f s\n', t_assembly_grad);
+% clear A_grad_H01 ; clear A_grad_L2 ;
+
+
+%% Compute gradient source term
+
+
+% Assemble rhs gradient matrix
+    % We wish to assemble the matrix evaluating the source term B' * p 
+    % We can obtain it from the A_grad_H01 matrix
+    
+grad_source_coeff = Sr.knots(2,:) .* (DATA.vTr_i - DATA.vTr_e ) ;
+
+grad_rhs = A_grad_H01 * P * diag(grad_source_coeff) ;
+
+expected_grad_rhs = grad_rhs * Sr.weights' ;
+
+% visualize gradient source term
+if PLOT_ALL
+    figure
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',expected_grad_rhs(1:MESH.numVertices  ),'xystyle','interp',...
+           'zdata',expected_grad_rhs(1:MESH.numVertices),'zstyle','continuous',...
+           'colorbar','on', 'mesh' , 'off'  );
+    colormap(jet); lighting phong;
+end
+
+%% Find gradient and apply projection step
+
+dw = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ expected_grad_rhs(MESH.indexInnerNodes) ;
+
+
+    
+if (PLOT_ALL)
+    dwbar = extend_with_zero( dw , MESH ) ; 
+    figure
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',dwbar(1:MESH.numVertices),'xystyle','interp',...
+       'zdata',dwbar(1:MESH.numVertices),'zstyle','continuous',...
+       'colorbar','on', 'mesh' , 'off' );
+    colormap(jet);
+    lighting phong
+    title('Control derivative Riesz element')
+end
+        
+% UPDATE W
+w_new = w - DATA.gstep *( DATA.beta* w + dw  ) ;
+w =  min( 1 , max( 0 , w_new )) ;
+wbar = extend_with_zero( w , MESH) ;
+    
+if (PLOT_ALL)
+    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
+    [X,Y] = meshgrid(-1:0.02:1) ; 
+    figure(92)
+    surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
+    shading interp ; colormap jet ; title('Ischemia location') ; axis equal ;
+    caxis( [0 1] )
+    colorbar ;
+    clear H ; clear X ; clear Y ; 
+    drawnow
+end    

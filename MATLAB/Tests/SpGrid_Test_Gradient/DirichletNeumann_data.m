@@ -57,4 +57,6 @@ data.FLAG_TORSO_BOUNDARY_NEU = 2 ;
 data.FLAG_HEART_BOUNDARY = 3 ;
 
 
-data.beta = 0.0 ;
+data.beta = 1e-4 ;
+
+data.gstep = 1e-4 ;
