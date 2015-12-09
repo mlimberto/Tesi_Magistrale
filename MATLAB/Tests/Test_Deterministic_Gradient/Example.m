@@ -127,12 +127,16 @@ A_fwd              =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
 t_assembly_fwd = toc(t_assembly_fwd);
 fprintf('done in %3.3f s\n', t_assembly_fwd);
 
+FE_SPACE.A_diffusion_total = A_fwd ;
+
 % Assemble rhs matrix for forward problem
 fprintf('\n Assembling source term matrix ... ');
 t_assembly_source = tic;
 A_source_fwd          =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
 t_assembly_source = toc(t_assembly_source);
 fprintf('done in %3.3f s\n', t_assembly_source);
+
+FE_SPACE.A_diffusion_heart = A_source_fwd ;
 
 % Build vector for zero-mean condition
 fprintf('\n Assembling zero-mean vector ... ');
@@ -142,6 +146,8 @@ B = A_react * ones( MESH.numNodes , 1 ) ;
 t_assembly_zeroMean = toc(t_assembly_zeroMean);
 fprintf('done in %3.3f s\n', t_assembly_zeroMean);
 clear A_react ;
+
+FE_SPACE.B = B ; 
 
 % Assemble lhs matrix for gradient computation
 fprintf('\n Assembling lhs matrix for gradient computation ... ');
@@ -153,6 +159,8 @@ A_grad_H01 = A_source_fwd ;
 A_grad = A_grad_L2 + A_grad_H01 ; 
 t_assembly_grad = toc(t_assembly_grad);  fprintf('done in %3.3f s\n', t_assembly_grad);
 % clear A_grad_H01 ; clear A_grad_L2 ;
+
+FE_SPACE.A_reaction_heart = A_grad_L2 ;
 
 % Assemble rhs gradient matrix
     % We wish to assemble the matrix evaluating the source term B' * p 
@@ -285,7 +293,10 @@ end
 
 J = [] ;
 
-iterMax = 50000 ; 
+dJ_L2 = [] ;
+dJ_H1 = [] ;
+
+iterMax = 50001 ; 
 
 for i=1:iterMax 
    
@@ -345,8 +356,17 @@ for i=1:iterMax
     dw = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
     t_solve = toc(t_solve); fprintf('done in %3.3f s \n', t_solve); 
     
-    if (PLOT_ALL)
     dwbar = extend_with_zero( dw , MESH ) ; 
+    gradwbar = dwbar + DATA.beta * wbar ; 
+    
+    normgradL2 = sqrt( gradwbar' * FE_SPACE.A_reaction_heart * gradwbar ) ;
+    normgradH1 = sqrt( gradwbar' * FE_SPACE.A_reaction_heart * gradwbar ...
+                     + gradwbar' * FE_SPACE.A_diffusion_heart * gradwbar ) ;
+                 
+    dJ_L2 = [ dJ_L2 ; normgradL2 ] ;
+    dJ_H1 = [ dJ_H1 ; normgradH1 ] ;
+
+    if (PLOT_ALL)
     figure
     pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',dwbar(1:MESH.numVertices),'xystyle','interp',...
        'zdata',dwbar(1:MESH.numVertices),'zstyle','continuous',...
