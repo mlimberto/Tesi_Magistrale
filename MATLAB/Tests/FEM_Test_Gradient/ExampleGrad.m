@@ -86,7 +86,18 @@ surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
 shading interp ; colormap jet ; title('Control function') ; axis equal ;
 clear H ; clear X ; clear Y ; 
 
-% Apply projection step 
+% Compute norm of the gradient 
+%L2
+gradw = dwbar + DATA.beta * wbar ;
+
+normL2 = gradw' * A_react * gradw ;
+normL2 = sqrt( normL2 ) ;
+%H1
+normH1 = gradw' * A_react * gradw  ...
+       + gradw' * A_source * gradw ;
+normH1 = sqrt( normH1 ) ;
+
+%% Apply projection step 
 w_new = min( max( w_new , 0 ) , 1 )  ;
 
 % Visualize it
