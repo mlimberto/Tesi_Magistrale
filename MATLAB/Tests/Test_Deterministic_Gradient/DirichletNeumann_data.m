@@ -54,7 +54,9 @@ data.uxexact        = @(x,y,t,param)( 0*x.*y );
 data.uyexact        = @(x,y,t,param)( 0*x.*y );
 
 % Penalisation coefficient
-data.beta = 1e-4 ; 
+data.beta = 1e-6 ; 
+data.betaL2 = 1e-6 ;
+data.betaGr = 1e-6 ;
 
 % Gradient step 
 data.gstep = 1e-4; 

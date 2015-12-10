@@ -350,18 +350,20 @@ for i=1:iterMax
     % GRADIENT OF W
     fprintf('\n Solving for the gradient of w ... ');
 
-    F_grad = A_tBp * p ; 
-    
+    % Assemble source term
+    F_grad = A_tBp * p ...
+           + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
+           + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
+  
     t_solve = tic;
     dw = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
     t_solve = toc(t_solve); fprintf('done in %3.3f s \n', t_solve); 
-    
+        
     dwbar = extend_with_zero( dw , MESH ) ; 
-    gradwbar = dwbar + DATA.beta * wbar ; 
     
-    normgradL2 = sqrt( gradwbar' * FE_SPACE.A_reaction_heart * gradwbar ) ;
-    normgradH1 = sqrt( gradwbar' * FE_SPACE.A_reaction_heart * gradwbar ...
-                     + gradwbar' * FE_SPACE.A_diffusion_heart * gradwbar ) ;
+    normgradL2 = sqrt( dwbar' * FE_SPACE.A_reaction_heart * dwbar ) ;
+    normgradH1 = sqrt( dwbar' * FE_SPACE.A_reaction_heart * dwbar ...
+                     + dwbar' * FE_SPACE.A_diffusion_heart * dwbar ) ;
                  
     dJ_L2 = [ dJ_L2 ; normgradL2 ] ;
     dJ_H1 = [ dJ_H1 ; normgradH1 ] ;
@@ -377,8 +379,10 @@ for i=1:iterMax
     end
         
     % UPDATE W
-    w_new = w - DATA.gstep *( DATA.beta* w + dw  ) ;
+    w_new = w - DATA.gstep *( dw  ) ;
+    % Apply projection step
     w =  min( 1 , max( 0 , w_new )) ;
+    
     wbar = extend_with_zero( w , MESH) ;
     
     if (PLOT_ALL)
