@@ -193,7 +193,7 @@ wbar = extend_with_zero( w , MESH) ;
 
 % Visualize w
 if (PLOT_ALL)
-    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
+    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w_target ) ; 
     [X,Y] = meshgrid(-1:0.02:1) ; 
     figure
     surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
@@ -412,6 +412,10 @@ end
 % if (PLOT_ALL)
 figure
 loglog( J ) ;
+figure
+loglog( dJ_L2 ) ; 
+figure
+loglog( dJ_H1 ) ;
 % end
 
 
