@@ -420,15 +420,13 @@ end
 
 % if (PLOT_ALL)
 figure
-loglog( J ) ;
-figure
 loglog( J , 'LineWidth' , 2 ) 
 hold on
 loglog( dJ_L2, 'LineWidth' , 2  ) ; 
 loglog( dJ_H1 , 'LineWidth' , 2 ) ;
 legend('j','l2','h1')
 grid on 
-end
+% end
 
 if (PLOT_ALL)
 figure
