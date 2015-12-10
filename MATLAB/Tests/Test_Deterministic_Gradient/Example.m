@@ -16,7 +16,7 @@ PLOT_ALL = 0 ; % 1 or 0 value
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Define which elements to use
-fem = 'P1';
+fem = 'P2';
 
 %% Import mesh
 
@@ -422,9 +422,24 @@ end
 figure
 loglog( J ) ;
 figure
-loglog( dJ_L2 ) ; 
-figure
-loglog( dJ_H1 ) ;
-% end
+loglog( J , 'LineWidth' , 2 ) 
+hold on
+loglog( dJ_L2, 'LineWidth' , 2  ) ; 
+loglog( dJ_H1 , 'LineWidth' , 2 ) ;
+legend('j','l2','h1')
+grid on 
+end
 
+if (PLOT_ALL)
+figure
+b = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) 
+plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,zd(b(1,:)) , 'Linewidth',2)
+hold on
+plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,u(b(1,:)) , 'Linewidth',2)
+legend('zd','u')
+
+figure
+plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,abs(zd(b(1,:)) - u(b(1,:)) ) , 'Linewidth',2)
+legend('u-zd at the boundary')
+end
 
