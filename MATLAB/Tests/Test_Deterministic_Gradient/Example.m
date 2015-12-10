@@ -113,6 +113,11 @@ fprintf(' * Number of Elements  = %d \n',MESH.numElem);
 fprintf(' * Number of Nodes     = %d \n',MESH.numNodes);
 fprintf('-------------------------------------------\n');
 
+% Initialize empty matrices in the FE_SPACE structure
+
+FE_SPACE.A_diffusion_heart = [] ;
+FE_SPACE.A_reaction_heart = [] ;
+FE_SPACE.A_diffusion_total = [] ;
 
 %% Matrix assembly
 
@@ -181,7 +186,7 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 0.4 ; % radius
-D = [0 0]; % displacement
+D = [1.0 0]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
@@ -296,7 +301,7 @@ J = [] ;
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
-iterMax = 50001 ; 
+iterMax = 5001 ; 
 
 for i=1:iterMax 
    
@@ -342,7 +347,7 @@ for i=1:iterMax
     
     
     % EVALUATE OBJECTIVE FUNCTION
-    J = [ J ; eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj , A_grad ) ] ;
+    J = [ J ; eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ] ;
     
     fprintf('\n J = %3.3f \n ',J(end) );
     
@@ -398,7 +403,7 @@ for i=1:iterMax
     end    
    
     % Save a snapshot every once in a while ... 
-    if mod( i , 10000 ) == 1 
+    if mod( i , 5000 ) == 1 
         H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
         [X,Y] = meshgrid(-1:0.02:1) ; 
         figure
