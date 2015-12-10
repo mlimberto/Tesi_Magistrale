@@ -342,7 +342,7 @@ for i=1:iterMax
         pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',p(1:MESH.numVertices),'xystyle','interp',...
             'zdata',p(1:MESH.numVertices),'zstyle','continuous',...
             'colorbar','on', 'mesh' , 'off'  );
-        colormap(jet); lighting phong ; title('Solution of state problem u') 
+        colormap(jet); lighting phong ; title('Solution of the adjoint problem p') 
     end   
     
     
