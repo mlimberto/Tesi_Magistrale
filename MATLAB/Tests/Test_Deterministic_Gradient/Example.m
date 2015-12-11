@@ -16,7 +16,7 @@ PLOT_ALL = 0 ; % 1 or 0 value
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Define which elements to use
-fem = 'P2';
+fem = 'P1';
 
 %% Import mesh
 
@@ -294,14 +294,23 @@ if (PLOT_ALL)
     clear X; clear Y;
 end
 
-%% Loop 
+%% Initialize Loop 
 
 J = [] ;
 
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
-iterMax = 5001 ; 
+iterMax = 10001 ; 
+
+% Set dirichlet point for resolution
+dirichletPoint = MESH.boundaries(1, MESH.boundaries(5,:) ~= DATA.FLAG_HEART_BOUNDARY) ;
+dirichletPoint = dirichletPoint(1);
+MESH.internal_dof( dirichletPoint ) = [] ;
+MESH.Dirichlet_dof = [ dirichletPoint ] ;
+u_Dirichlet = [ zd(dirichletPoint) ] ;
+
+%% Loop
 
 for i=1:iterMax 
    
@@ -309,13 +318,29 @@ for i=1:iterMax
     fprintf('\n Solving the forward problem ... ');
    
     F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
-    [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
-    t_solve = tic;
-    u = zeros(MESH.numNodes , 1) ;
-    u_total = A_total \ [ F_in ; 0 ] ; 
-    u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
-    t_solve = toc(t_solve) ;
-    fprintf('done in %3.3f s \n', t_solve); 
+%     [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
+%     A_in = A_fwd ;
+%     F_in = F_fwd ;
+%     t_solve = tic;
+%     u = zeros(MESH.numNodes , 1) ;
+%     
+%     % Strategy 1
+%     u_total = A_total \ [ F_in ; 0 ] ; 
+%     u(1:MESH.numNodes) = u_total( 1 : end -1  ) ;    clear u_total; 
+%     t_solve = toc(t_solve) ;
+%     fprintf('done in %3.3f s \n', t_solve); 
+    
+%     % Strategy 2
+    F_in = F_fwd(MESH.internal_dof)...
+         - A_fwd(MESH.internal_dof,MESH.Dirichlet_dof)*u_Dirichlet';
+    
+    A_in = A_fwd(MESH.internal_dof,MESH.internal_dof);
+    
+    
+    u = zeros(MESH.numNodes, 1) ;
+    u( MESH.internal_dof ) = A_in \ F_in  ;
+    u( MESH.Dirichlet_dof ) = u_Dirichlet ;
+    
     
     if (PLOT_ALL)
         figure(90)
@@ -334,7 +359,7 @@ for i=1:iterMax
     t_solve = tic;
     p = zeros(MESH.numNodes , 1);
     p_total = A_total' \ [ F_adj ; 0 ] ;
-    p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
+    p(1:MESH.numNodes) = p_total(1: end -1) ;   clear p_total;
     t_solve = toc(t_solve); fprintf('done in %3.3f s \n', t_solve);
     
     if (PLOT_ALL)
@@ -430,7 +455,7 @@ grid on
 
 if (PLOT_ALL)
 figure
-b = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) 
+b = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= DATA.FLAG_HEART_BOUNDARY  ) ) 
 plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,zd(b(1,:)) , 'Linewidth',2)
 hold on
 plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,u(b(1,:)) , 'Linewidth',2)

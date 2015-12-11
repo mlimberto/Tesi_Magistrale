@@ -54,11 +54,11 @@ data.uxexact        = @(x,y,t,param)( 0*x.*y );
 data.uyexact        = @(x,y,t,param)( 0*x.*y );
 
 % Penalisation coefficient
-data.betaL2 = 0.0 ;
-data.betaGr = 1e-10 ;
+data.betaL2 = 1e-9 ;
+data.betaGr = 1e-8 ;
 
 % Gradient step 
-data.gstep = 2e-4; 
+data.gstep = 1e-4; 
 
 % Add flags to identify mesh elements (in accordance with .geo file)
 data.FLAG_HEART_REGION = 10 ;
