@@ -334,9 +334,11 @@ sigma1_cg = 1e-8 ;
 sigma2_cg = 0 ;
    
 % Compute first L2 norm of gradient (indeed it's the L2 norm squared)
-normgradL2 =  dbar' * FE_SPACE.A_reaction_heart * dbar  ;
-
+normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
 normgradL2_old = 0 ;
+
+normgradH1 = productH1Heart( dw , dw , MESH , FE_SPACE ) ;
+normgradH1_old = 0;
 
 % Evaluate first objective function 
 J_old = eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ;
@@ -344,7 +346,7 @@ J = [ J_old ] ;
 
 %% Loop 
 
-for i=1:400
+for i=1:30
     
     % Compute step length
     ACCEPTABLE = 0 ;
@@ -403,10 +405,13 @@ for i=1:400
             
     % Evaluate L2 and H1 norm of new gradient
     normgradL2_old = normgradL2 ;
-    normgradL2 =  productL2Heart( dw , dw , MESH , FE_SPACE ) ;
+    normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
+    normgradH1_old = normgradH1 ;
+    normgradH1 = productH1Heart( dw , dw , MESH , FE_SPACE ) ;
+    
     
     dJ_L2 = [ dJ_L2 ; sqrt( normgradL2 )  ] ;
-    dJ_H1 = [ dJ_H1 ; sqrt( productH1Heart( dw , dw , MESH , FE_SPACE ) )  ] ;
+    dJ_H1 = [ dJ_H1 ; sqrt( normgradH1 )  ] ;
     
     % Determine a scalar beta
     
