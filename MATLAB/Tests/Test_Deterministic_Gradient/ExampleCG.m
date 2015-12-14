@@ -327,12 +327,12 @@ iterMax = 5001 ;
         
    
 % Set an initial step length
-s_cg = 1e-4; 
+s_cg = 1e-3; 
    
 % Set Wolfe coefficients 
-sigma1_cg = 1e-8 ; 
-sigma2_cg = 0 ;
-   
+sigma1_cg = 1e-7 ; 
+sigma2_cg = 0.48 ;
+ 
 % Compute first L2 norm of gradient (indeed it's the L2 norm squared)
 normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
 normgradL2_old = 0 ;
@@ -344,9 +344,12 @@ normgradH1_old = 0;
 J_old = eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ;
 J = [ J_old ] ;
 
+% Initialize d_old
+d_old = d ;
+
 %% Loop 
 
-for i=1:300
+for i=1:2000
     
     % Compute step length
     ACCEPTABLE = 0 ;
@@ -377,11 +380,12 @@ for i=1:300
         % Evaluate new J 
         J_new = eval_ObjFunction(MESH , DATA , FE_SPACE , w_new_projected , u , zd , -F_adj ) ;
         
-        % Check first Wolfe condition
-        W1 = J_new <= J_old + sigma1_cg * s_cg * productH1Heart( dw , d , MESH , FE_SPACE ) 
+        % Check Armijo's condition (Wolfe condition 1)
+        W1 = J_new <= J_old + sigma1_cg * s_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
         
-        % Check second Wolfe condition
-        W2 = 1 ;
+        % Check curvature condition (Wolfe condition 2)
+        W2 = productH1Heart( dw_new , d , MESH , FE_SPACE ) >= ...
+             sigma2_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
         
         % If conditions are verified update the solutions
         % Otherwise, update the gradient step
@@ -398,7 +402,20 @@ for i=1:300
             
             fprintf('\n J = %3.3f \n ',J(end) );
         else
-            s_cg = s_cg/2 ; 
+            if ~W2 
+                s_cg = s_cg * 1.3 ;
+                disp 'Increasing step'
+            end
+            if ~W1
+                s_cg = s_cg / 1.3 ;
+                disp 'Decreasing step'
+            end
+            if (~W1) && (~W2)
+                s_cg = s_cg / 1.3 ;
+                d = dw_new ;
+                disp 'Decreasing step'
+            end
+            
         end
         
     end
@@ -415,20 +432,32 @@ for i=1:300
     
     % Determine a scalar beta
     
-    beta_cg_FR = normgradH1 / normgradH1_old ; % Fletcher-Reeves rule
+    % Fletcher-Reeves rule
+    beta_cg_FR = normgradH1 / normgradH1_old ; 
     
+    % Polak-Ribiere rule
     beta_cg_PR = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) / normgradH1 ;  
     
-%     beta_cg_HS = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) ...
-%                / productH1Heart( 
+    % Hestenes-Stiefel rule
+    if ( i == 1 )
+    beta_cg_HS = beta_cg_PR ;       
+    else
+    beta_cg_HS = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) ...
+               / productH1Heart( d_old , dw - dw_old , MESH , FE_SPACE ) ;    
+    end
     
-    % Find the conjugate direction 
+    % Find the new descent direction 
+    d_old = d ;
     
     d =  -dw + beta_cg_FR * d ; 
 %     d =  -dw + beta_cg_PR * d ; 
-    
+%     d = -dw + beta_cg_HS * d ;
+
     % Check termination conditions
-    
+        
+        % Check if d is a descent direction
+        d_dot_dw = productH1Heart( d , dw , MESH , FE_SPACE ) / sqrt(normgradH1) / sqrt( productH1Heart( d , d , MESH , FE_SPACE ) ) ;
+        fprintf('\n cos(angle) = %3.3f \n ',d_dot_dw );
 end
 
 %% Final visualizations
