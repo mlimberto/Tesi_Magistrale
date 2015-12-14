@@ -346,7 +346,7 @@ J = [ J_old ] ;
 
 %% Loop 
 
-for i=1:30
+for i=1:300
     
     % Compute step length
     ACCEPTABLE = 0 ;
@@ -415,9 +415,9 @@ for i=1:30
     
     % Determine a scalar beta
     
-    beta_cg_FR = normgradL2 / normgradL2_old ; % Fletcher-Reeves rule
+    beta_cg_FR = normgradH1 / normgradH1_old ; % Fletcher-Reeves rule
     
-    beta_cg_PR = productL2Heart( dw , dw - dw_old , MESH , FE_SPACE ) / normgradL2 ;  
+    beta_cg_PR = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) / normgradH1 ;  
     
 %     beta_cg_HS = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) ...
 %                / productH1Heart( 
