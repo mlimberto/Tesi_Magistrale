@@ -296,8 +296,6 @@ end
 
 %% Loop initialization
 
-J = [] ;
-
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
@@ -317,76 +315,116 @@ iterMax = 5001 ;
     p_total = A_total' \ [ F_adj ; 0 ] ;
     p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
 
-    % Find gradient of J
-   F_grad = A_tBp * p ...
+    % Find gradient of J and set first descent direction as -grad(J)
+    F_grad = A_tBp * p ...
           + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
           + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
   
-   d = - A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
-   dbar = extend_with_zero( d , MESH ) ; 
+    dw =  A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes)  ;
+    
+    d = - dw ;
+    dbar = extend_with_zero( d , MESH ) ; 
+        
    
-   % Set an initial step length
-   s_cg = 1e-4; 
+% Set an initial step length
+s_cg = 1e-4; 
    
-   % Set Wolfe coefficients 
+% Set Wolfe coefficients 
+sigma1_cg = 1e-8 ; 
+sigma2_cg = 0 ;
+   
+% Compute first L2 norm of gradient (indeed it's the L2 norm squared)
+normgradL2 =  dbar' * FE_SPACE.A_reaction_heart * dbar  ;
 
-   
-   % Compute first L2 norm of gradient
-   normgradL2 =  dbar' * FE_SPACE.A_reaction_heart * dbar  ;
+normgradL2_old = 0 ;
 
-   normgradL2_old = 0 ;
+% Evaluate first objective function 
+J_old = eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ;
+J = [ J_old ] ;
 
 %% Loop 
 
-for i=1:22
+for i=1:400
     
     % Compute step length
+    ACCEPTABLE = 0 ;
     
-    % Update w 
-    w_new = w + s_cg *( d  ) ;
-    w =  min( 1 , max( 0 , w_new )) ;
-    wbar = extend_with_zero( w , MESH) ;
-    
-    % Solve forward and adjoint problem and determine new gradient
-    F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
-    [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
-    u = zeros(MESH.numNodes , 1) ;
-    u_total = A_total \ [ F_in ; 0 ] ; 
-    u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
+    while( ~ACCEPTABLE) 
+        % Compute wnew, solve the forward and adjoint problem, evaluate new objective function and new gradient
+        w_new = w + s_cg *( d  ) ;
+        w_new_projected =  min( 1 , max( 0 , w_new )) ;
+        w_new_projected_bar = extend_with_zero( w_new_projected , MESH) ;
+            
+        F_fwd = DATA.coeffRhs * A_source_fwd * w_new_projected_bar ;
+        [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
+        u = zeros(MESH.numNodes , 1) ;
+        u_total = A_total \ [ F_in ; 0 ] ; 
+        u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
 
-    F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
-    p = zeros(MESH.numNodes , 1);
-    p_total = A_total' \ [ F_adj ; 0 ] ;
-    p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
+        F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
+        p = zeros(MESH.numNodes , 1);
+        p_total = A_total' \ [ F_adj ; 0 ] ;
+        p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
 
-    % Find gradient of J
-    F_grad = A_tBp * p ...
-           + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
-           + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
+        F_grad = A_tBp * p ...
+               + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
+               + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
   
-    dw = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
-    dwbar = extend_with_zero( dw , MESH ) ; 
-
-    % Evaluate objective function
-    J = [ J ; eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ] ;
-    fprintf('\n J = %3.3f \n ',J(end) );
+        dw_new = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
+        
+        % Evaluate new J 
+        J_new = eval_ObjFunction(MESH , DATA , FE_SPACE , w_new_projected , u , zd , -F_adj ) ;
+        
+        % Check first Wolfe condition
+        W1 = J_new <= J_old + sigma1_cg * s_cg * productH1Heart( dw , d , MESH , FE_SPACE ) 
+        
+        % Check second Wolfe condition
+        W2 = 1 ;
+        
+        % If conditions are verified update the solutions
+        % Otherwise, update the gradient step
+        if ( W1 && W2 ) 
+            ACCEPTABLE = 1 ;
+            
+            w = min( 1 , max( 0 , w_new )) ;
+            wbar = extend_with_zero( w , MESH) ;
+            J = [ J ; J_new ] ;
+            J_old = J_new ;
+            dw_old = dw ;
+            dw = dw_new ;
+            dwbar = extend_with_zero( dw , MESH ) ;
+            
+            fprintf('\n J = %3.3f \n ',J(end) );
+        else
+            s_cg = s_cg/2 ; 
+        end
+        
+    end
+            
+    % Evaluate L2 and H1 norm of new gradient
+    normgradL2_old = normgradL2 ;
+    normgradL2 =  productL2Heart( dw , dw , MESH , FE_SPACE ) ;
     
-    % Determine a scalar bn 
-        
-        % Evaluate L2 norm of new gradient
-        normgradL2_old = normgradL2 ;
-        normgradL2 =  dwbar' * FE_SPACE.A_reaction_heart * dwbar ;
-        
-    beta_cg_FR = normgradL2 / normgradL2_old ;
+    dJ_L2 = [ dJ_L2 ; sqrt( normgradL2 )  ] ;
+    dJ_H1 = [ dJ_H1 ; sqrt( productH1Heart( dw , dw , MESH , FE_SPACE ) )  ] ;
+    
+    % Determine a scalar beta
+    
+    beta_cg_FR = normgradL2 / normgradL2_old ; % Fletcher-Reeves rule
+    
+    beta_cg_PR = productL2Heart( dw , dw - dw_old , MESH , FE_SPACE ) / normgradL2 ;  
+    
+%     beta_cg_HS = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) ...
+%                / productH1Heart( 
     
     % Find the conjugate direction 
-    d =  -dw + beta_cg_FR * d ; 
     
-    % Increase n 
+    d =  -dw + beta_cg_FR * d ; 
+%     d =  -dw + beta_cg_PR * d ; 
+    
+    % Check termination conditions
     
 end
-
-% End of loop
 
 %% Final visualizations
 
