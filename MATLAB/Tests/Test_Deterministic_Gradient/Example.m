@@ -16,7 +16,7 @@ PLOT_ALL = 0 ; % 1 or 0 value
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Define which elements to use
-fem = 'P2';
+fem = 'P1';
 
 %% Import mesh
 
@@ -301,7 +301,10 @@ J = [] ;
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
-iterMax = 5001 ; 
+iterMax = 10001 ; 
+
+errorL2 = [] ;
+errorH1 = [] ;
 
 for i=1:iterMax 
    
@@ -414,6 +417,20 @@ for i=1:iterMax
         drawnow 
     end
 
+%     figure(66)
+%     b = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) ;
+%     plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,zd(b(1,:)) , 'Linewidth',2)
+%     hold on
+%     plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,u(b(1,:)) , 'Linewidth',2)
+%     legend('zd','u')
+%     drawnow
+%     hold off
+    
+% Evaluate the error
+
+errorL2 = [ errorL2 ; sqrt(productL2Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
+errorH1 = [ errorH1 ; sqrt(productH1Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
+
 end
 
 % Display objective function 
@@ -430,14 +447,13 @@ grid on
 
 if (PLOT_ALL)
 figure
-b = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) 
-plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,zd(b(1,:)) , 'Linewidth',2)
+outer_oundary_index = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) ;
+plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,zd(outer_oundary_index(1,:)) , 'Linewidth',2)
 hold on
-plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,u(b(1,:)) , 'Linewidth',2)
+plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,u(outer_oundary_index(1,:)) , 'Linewidth',2)
 legend('zd','u')
-
 figure
-plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,abs(zd(b(1,:)) - u(b(1,:)) ) , 'Linewidth',2)
+plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,abs(zd(outer_oundary_index(1,:)) - u(outer_oundary_index(1,:)) ) , 'Linewidth',2)
 legend('u-zd at the boundary')
 end
 
