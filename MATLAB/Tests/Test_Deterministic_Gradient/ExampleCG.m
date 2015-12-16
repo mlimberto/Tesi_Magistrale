@@ -327,11 +327,11 @@ iterMax = 5001 ;
         
    
 % Set an initial step length
-s_cg = 1e-3; 
+s_cg = 1e-2; 
    
 % Set Wolfe coefficients 
 sigma1_cg = 1e-7 ; 
-sigma2_cg = 0.48 ;
+sigma2_cg = 0.4;
  
 % Compute first L2 norm of gradient (indeed it's the L2 norm squared)
 normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
@@ -386,6 +386,15 @@ for i=1:2000
         % Check curvature condition (Wolfe condition 2)
         W2 = productH1Heart( dw_new , d , MESH , FE_SPACE ) >= ...
              sigma2_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
+         
+        W2 = 1 ; 
+        
+        if ( s_cg < 1e-9 ) 
+           W1 = 1 ; 
+           d = -dw_new ; 
+           d_old = -dw_new ;
+           disp 'Reinitializing direction'
+        end
         
         % If conditions are verified update the solutions
         % Otherwise, update the gradient step
@@ -400,21 +409,16 @@ for i=1:2000
             dw = dw_new ;
             dwbar = extend_with_zero( dw , MESH ) ;
             
+            s_cg = 1e-3;
+            
             fprintf('\n J = %3.3f \n ',J(end) );
         else
-            if ~W2 
-                s_cg = s_cg * 1.3 ;
-                disp 'Increasing step'
-            end
+
             if ~W1
-                s_cg = s_cg / 1.3 ;
+                s_cg = s_cg / 1.2 ;
                 disp 'Decreasing step'
             end
-            if (~W1) && (~W2)
-                s_cg = s_cg / 1.3 ;
-                d = dw_new ;
-                disp 'Decreasing step'
-            end
+
             
         end
         
