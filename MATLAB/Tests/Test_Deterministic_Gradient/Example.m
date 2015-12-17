@@ -134,6 +134,10 @@ fprintf('done in %3.3f s\n', t_assembly_fwd);
 
 FE_SPACE.A_diffusion_total = A_fwd ;
 
+% Fix diffusion coefficient!!! 
+
+DATA.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
+
 % Assemble rhs matrix for forward problem
 fprintf('\n Assembling source term matrix ... ');
 t_assembly_source = tic;
@@ -301,7 +305,7 @@ J = [] ;
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
-iterMax = 10001 ; 
+iterMax = 50001 ; 
 
 errorL2 = [] ;
 errorH1 = [] ;
