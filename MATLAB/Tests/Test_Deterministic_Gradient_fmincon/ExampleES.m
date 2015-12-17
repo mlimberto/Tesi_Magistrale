@@ -134,6 +134,10 @@ fprintf('done in %3.3f s\n', t_assembly_fwd);
 
 FE_SPACE.A_diffusion_total = A_fwd ;
 
+% Fix diffusion coefficient!!! 
+
+DATA.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
+
 % Assemble rhs matrix for forward problem
 fprintf('\n Assembling source term matrix ... ');
 t_assembly_source = tic;
@@ -307,11 +311,15 @@ errorL2 = [] ;
 errorH1 = [] ;
 
 for i=1:iterMax 
+    
+    fprintf('Iteration %d \n',i);
    
-    [ J , dw , u , p , normgradL2 , normgradH1 ] = solveFwdAdjGrad( w , MESH , FE_SPACE , DATA , zd ) ;
+    [ currentJ , dw , u , p , normgradL2 , normgradH1 ] = solveFwdAdjGrad( w , MESH , FE_SPACE , DATA , zd ) ;
         
     dwbar = extend_with_zero( dw , MESH ) ; 
-                 
+    
+    
+    J = [ J ; currentJ ] ;             
     dJ_L2 = [ dJ_L2 ; normgradL2 ] ;
     dJ_H1 = [ dJ_H1 ; normgradH1 ] ;
 

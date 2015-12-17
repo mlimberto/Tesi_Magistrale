@@ -48,9 +48,10 @@ J = eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ;
 
 
 % Evaluate gradient
+A_grad = FE_SPACE.A_diffusion_heart + FE_SPACE.A_reaction_heart ;
 
 if nargout > 1
-    F_grad = A_tBp * p ...
+    F_grad = - DATA.coeffRhs * FE_SPACE.A_diffusion_heart * p ...
            + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
            + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
        
