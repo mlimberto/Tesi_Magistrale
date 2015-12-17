@@ -298,88 +298,202 @@ if (PLOT_ALL)
     clear X; clear Y;
 end
 
-%% Loop 
 
-J = [] ;
+
+%% A few CG iterations
 
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
-iterMax = 10001 ; 
+iterMax = 5001 ; 
 
-errorL2 = [] ;
-errorH1 = [] ;
+% Find first search direction d0 
+    % Solve fwd
+    F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
+    [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
+    u = zeros(MESH.numNodes , 1) ;
+    u_total = A_total \ [ F_in ; 0 ] ; 
+    u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
 
-for i=1:iterMax 
+    % Solve adj
+    F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
+    p = zeros(MESH.numNodes , 1);
+    p_total = A_total' \ [ F_adj ; 0 ] ;
+    p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
+
+    % Find gradient of J and set first descent direction as -grad(J)
+    F_grad = A_tBp * p ...
+          + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
+          + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
+  
+    dw =  A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes)  ;
     
-    fprintf('Iteration %d \n',i);
-   
-    [ currentJ , dw , u , p , normgradL2 , normgradH1 ] = solveFwdAdjGrad( w , MESH , FE_SPACE , DATA , zd ) ;
+    d = - dw ;
+    dbar = extend_with_zero( d , MESH ) ; 
         
-    dwbar = extend_with_zero( dw , MESH ) ; 
-    
-    
-    J = [ J ; currentJ ] ;             
-    dJ_L2 = [ dJ_L2 ; normgradL2 ] ;
-    dJ_H1 = [ dJ_H1 ; normgradH1 ] ;
-
-        
-    % UPDATE W
-    w_new = w - DATA.gstep *( dw  ) ;
-    % Apply projection step
-    w =  min( 1 , max( 0 , w_new )) ;
-    
-    wbar = extend_with_zero( w , MESH) ;
    
-    % Save a snapshot every once in a while ... 
-    if mod( i , 5000 ) == 1 
-        H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
-        [X,Y] = meshgrid(-1:0.02:1) ; 
-        figure
-        surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-        shading interp ; colormap jet ; title('Ischemia location') ; axis equal ;
-        clear H ; clear X ; clear Y ; 
-%         caxis( [ 0 1 ] )
-        drawnow 
+% Set an initial step length
+s_cg = 1e-2; 
+   
+% Set Wolfe coefficients 
+sigma1_cg = 1e-7 ; 
+sigma2_cg = 0.4;
+ 
+% Compute first L2 norm of gradient (indeed it's the L2 norm squared)
+normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
+normgradL2_old = 0 ;
+
+normgradH1 = productH1Heart( dw , dw , MESH , FE_SPACE ) ;
+normgradH1_old = 0;
+
+% Evaluate first objective function 
+J_old = eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ;
+J = [ J_old ] ;
+
+% Initialize d_old
+d_old = d ;
+ 
+
+for i=1:100
+    
+    % Compute step length
+    ACCEPTABLE = 0 ;
+    
+    while( ~ACCEPTABLE) 
+        % Compute wnew, solve the forward and adjoint problem, evaluate new objective function and new gradient
+        w_new = w + s_cg *( d  ) ;
+        w_new_projected =  min( 1 , max( 0 , w_new )) ;
+        w_new_projected_bar = extend_with_zero( w_new_projected , MESH) ;
+            
+        F_fwd = DATA.coeffRhs * A_source_fwd * w_new_projected_bar ;
+        [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
+        u = zeros(MESH.numNodes , 1) ;
+        u_total = A_total \ [ F_in ; 0 ] ; 
+        u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
+
+        F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
+        p = zeros(MESH.numNodes , 1);
+        p_total = A_total' \ [ F_adj ; 0 ] ;
+        p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
+
+        F_grad = A_tBp * p ...
+               + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
+               + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
+  
+        dw_new = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
+        
+        % Evaluate new J 
+        J_new = eval_ObjFunction(MESH , DATA , FE_SPACE , w_new_projected , u , zd , -F_adj ) ;
+        
+        % Check Armijo's condition (Wolfe condition 1)
+        W1 = J_new <= J_old + sigma1_cg * s_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
+        
+        % Check curvature condition (Wolfe condition 2)
+        W2 = productH1Heart( dw_new , d , MESH , FE_SPACE ) >= ...
+             sigma2_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
+         
+        W2 = 1 ; 
+        
+        if ( s_cg < 1e-9 ) 
+           W1 = 1 ; 
+           d = -dw_new ; 
+           d_old = -dw_new ;
+           disp 'Reinitializing direction'
+        end
+        
+        % If conditions are verified update the solutions
+        % Otherwise, update the gradient step
+        if ( W1 && W2 ) 
+            ACCEPTABLE = 1 ;
+            
+            w = min( 1 , max( 0 , w_new )) ;
+            wbar = extend_with_zero( w , MESH) ;
+            J = [ J ; J_new ] ;
+            J_old = J_new ;
+            dw_old = dw ;
+            dw = dw_new ;
+            dwbar = extend_with_zero( dw , MESH ) ;
+            
+            s_cg = 1e-3;
+            
+            fprintf('\n J = %3.3f \n ',J(end) );
+        else
+
+            if ~W1
+                s_cg = s_cg / 1.2 ;
+                disp 'Decreasing step'
+            end
+
+            
+        end
+        
     end
-
-%     figure(66)
-%     b = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) ;
-%     plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,zd(b(1,:)) , 'Linewidth',2)
-%     hold on
-%     plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,u(b(1,:)) , 'Linewidth',2)
-%     legend('zd','u')
-%     drawnow
-%     hold off
+            
+    % Evaluate L2 and H1 norm of new gradient
+    normgradL2_old = normgradL2 ;
+    normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
+    normgradH1_old = normgradH1 ;
+    normgradH1 = productH1Heart( dw , dw , MESH , FE_SPACE ) ;
     
-% Evaluate the error
+    
+    dJ_L2 = [ dJ_L2 ; sqrt( normgradL2 )  ] ;
+    dJ_H1 = [ dJ_H1 ; sqrt( normgradH1 )  ] ;
+    
+    % Determine a scalar beta
+    
+    % Fletcher-Reeves rule
+    beta_cg_FR = normgradH1 / normgradH1_old ; 
+    
+    % Polak-Ribiere rule
+    beta_cg_PR = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) / normgradH1 ;  
+    
+    % Hestenes-Stiefel rule
+    if ( i == 1 )
+    beta_cg_HS = beta_cg_PR ;       
+    else
+    beta_cg_HS = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) ...
+               / productH1Heart( d_old , dw - dw_old , MESH , FE_SPACE ) ;    
+    end
+    
+    % Find the new descent direction 
+    d_old = d ;
+    
+    d =  -dw + beta_cg_FR * d ; 
+%     d =  -dw + beta_cg_PR * d ; 
+%     d = -dw + beta_cg_HS * d ;
 
-errorL2 = [ errorL2 ; sqrt(productL2Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
-errorH1 = [ errorH1 ; sqrt(productH1Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
-
+    % Check termination conditions
+        
+        % Check if d is a descent direction
+        d_dot_dw = productH1Heart( d , dw , MESH , FE_SPACE ) / sqrt(normgradH1) / sqrt( productH1Heart( d , d , MESH , FE_SPACE ) ) ;
+        fprintf('\n cos(angle) = %3.3f \n ',d_dot_dw );
 end
 
-% Display objective function 
 
-% if (PLOT_ALL)
-figure
-loglog( J , 'LineWidth' , 2 ) 
-hold on
-loglog( dJ_L2, 'LineWidth' , 2  ) ; 
-loglog( dJ_H1 , 'LineWidth' , 2 ) ;
-legend('j','l2','h1')
-grid on 
-% end
 
-if (PLOT_ALL)
-figure
-outer_oundary_index = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) ;
-plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,zd(outer_oundary_index(1,:)) , 'Linewidth',2)
-hold on
-plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,u(outer_oundary_index(1,:)) , 'Linewidth',2)
-legend('zd','u')
-figure
-plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,abs(zd(outer_oundary_index(1,:)) - u(outer_oundary_index(1,:)) ) , 'Linewidth',2)
-legend('u-zd at the boundary')
-end
+%% Solve with constrained minimization
+
+functionHandler = @(w) solveFwdAdjGrad( w , MESH , FE_SPACE , DATA , zd ) ;
+
+w0 = w;
+A = [];
+b = [];
+Aeq = [];
+beq = [];
+lb = zeros(size(w));
+ub = ones (size(w));
+nonlcon = [];
+
+options = optimoptions('fmincon','GradObj','on');
+
+[w_opt ,J_opt ] = fmincon(functionHandler,w0,A,b,Aeq,beq,lb,ub,nonlcon,options);
+
+
+%% Plot w_opt
+    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w_opt ) ; 
+    [X,Y] = meshgrid(-1:0.02:1) ; 
+    figure
+    surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
+    shading interp ; colormap jet ; title('Control function') ; axis equal ;
+    clear H ; clear X ; clear Y ; 
 
