@@ -354,7 +354,7 @@ J = [ J_old ] ;
 d_old = d ;
  
 
-for i=1:100
+for i=1:1000
     
     % Compute step length
     ACCEPTABLE = 0 ;
@@ -414,9 +414,9 @@ for i=1:100
             dw = dw_new ;
             dwbar = extend_with_zero( dw , MESH ) ;
             
-            s_cg = 1e-3;
+            s_cg = 1e-2;
             
-            fprintf('\n J = %3.3f \n ',J(end) );
+            fprintf('\n J = %3.3e \n ',J(end) );
         else
 
             if ~W1
@@ -469,13 +469,14 @@ for i=1:100
         fprintf('\n cos(angle) = %3.3f \n ',d_dot_dw );
 end
 
+w_out = w ;
 
 
 %% Solve with constrained minimization
 
 functionHandler = @(w) solveFwdAdjGrad( w , MESH , FE_SPACE , DATA , zd ) ;
 
-w0 = w;
+w0 = w_out;
 A = [];
 b = [];
 Aeq = [];
@@ -484,10 +485,11 @@ lb = zeros(size(w));
 ub = ones (size(w));
 nonlcon = [];
 
-options = optimoptions('fmincon','GradObj','on');
+options = optimoptions('fmincon','GradObj','on','Display','iter','Algorithm','active-set');
+options = optimoptions('fminunc','GradObj','on','Display','iter','Algorithm','trust-region');
 
-[w_opt ,J_opt ] = fmincon(functionHandler,w0,A,b,Aeq,beq,lb,ub,nonlcon,options);
-
+% [w_opt ,J_opt ] = fmincon(functionHandler,w0,A,b,Aeq,beq,lb,ub,nonlcon,options);
+[w_opt ,J_opt ] = fmincon(functionHandler,w0,options);
 
 %% Plot w_opt
     H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w_opt ) ; 
