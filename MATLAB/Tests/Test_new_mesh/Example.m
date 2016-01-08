@@ -20,49 +20,39 @@ fem = 'P1';
 
 %% Import mesh
 
-% meshFileName = '../../Mesh/Square/square_coarse' ;
-% meshFileName = '../../Mesh/Square/square' ;
-% meshFileName = '../../Mesh/Square/square_fine' ;
-
-% [vertices, boundaries, elements] = msh_to_Mmesh(meshFileName, 2) ;
-
 addpath('../../Mesh/Ovetto_Circondato/') ; % add path to mesh geometry specification function
 
 [vertices,boundaries,elements] = initmesh('ovetto_circondato_sens' , ...
                                           'Jiggle','minimum','Hgrad',1.9,'Hmax',1000) ;
-                                      
+
+% Refine only the heart subdomain
 [vertices,boundaries,elements] = refinemesh('ovetto_circondato_sens' , vertices , ... 
                                             boundaries, elements , [1 ]) ;                                    
 
+% Refine both the heart and the torso                                        
 [vertices,boundaries,elements] = refinemesh('ovetto_circondato_sens' , vertices , ... 
                                             boundaries, elements , [1 2 ]) ;                                         
-                                        
+  
+% Reinitialize the boundary indexes
+for i = 1:4 
+    boundaries( 5 , find( boundaries(5,:) == i)  ) = 3 ;  
+end
+for i = 5:12
+    boundaries( 5 , find( boundaries(5,:) == i)  ) = 5 ;
+end
+for i = 13:26
+    boundaries( 5 , find( boundaries(5,:) == i)  ) = 13 ;
+end                                        
+
+% ATTENZIONE, i valori 3,5,13 non sono scelti completamente a caso,
+% BUG evidente se si sceglie ad esempio 6,5,13 !!!
+
 if (PLOT_ALL)
-    % Plot mesh 
+    % Plot mesh
     figure
     pdeplot(vertices,[],elements(1:3,:))
-    axis equal
-    
-    % Plot boundaries
-    dT_index = [] ; dH_inner_index = []; dH_index = [] ;
-    for i = 1:4 
-        dH_index = [ dH_index , boundaries( 1:2 , find( boundaries(5,:) == i)  ) ] ; 
-    end
-    for i = 5:12 
-        dH_inner_index = [ dH_inner_index , boundaries( 1:2 , find( boundaries(5,:) == i)  ) ] ; 
-    end
-    for i = 13:26 
-        dT_index = [ dT_index , boundaries( 1:2 , find( boundaries(5,:) == i)  ) ] ; 
-    end
-    figure
-    plot( vertices(1,dH_index) , vertices(2,dH_index) , 'o' )
-    hold on 
-    plot( vertices(1,dH_inner_index) , vertices(2,dH_inner_index) , 'o' )
-    plot( vertices(1,dT_index) , vertices(2,dT_index) , 'o' )
-    legend('\partialH','\partialH_{inner}','\partialT')
-
+    axis equal    
 end
-
 
 %% Set parameters from file
 data_file = 'DirichletNeumann_data' ;
@@ -70,6 +60,15 @@ data_file = 'DirichletNeumann_data' ;
 DATA   = read_DataFile(data_file);
 DATA.param = [] ;
 t = [] ;
+
+% Add flags to identify mesh elements (in accordance with .geo file)
+DATA.FLAG_HEART_REGION = 1 ;
+DATA.FLAG_TORSO_REGION = 2 ;
+
+DATA.FLAG_HEART_OUTER_BOUNDARY = 3 ;
+DATA.FLAG_HEART_INNER_BOUNDARY = 5 ;
+DATA.FLAG_TORSO_BOUNDARY_NEU = 13 ;
+
 
 %% Fill MESH data structure
 MESH.vertices    = vertices;
@@ -107,8 +106,8 @@ quad_order                  = 4;
 %% Fill inner mesh data structure
 
 MESH.indexInnerElem = find( MESH.elements( numElemDof+ 1 ,:)== DATA.FLAG_HEART_REGION ) ; 
-MESH.indexInnerBoun = find( MESH.boundaries( 5 , :) == DATA.FLAG_HEART_BOUNDARY ) ;
-MESH.indexInnerVert = MESH.boundaries(1, MESH.indexInnerBoun ) ;
+% MESH.indexInnerBoun = find( MESH.boundaries( 5 , :) == DATA.FLAG_HEART_BOUNDARY ) ;
+% MESH.indexInnerVert = MESH.boundaries(1, MESH.indexInnerBoun ) ;
 
 MESH.innerElements = MESH.elements( : , MESH.indexInnerElem ) ;
 
@@ -221,11 +220,13 @@ fprintf('\n Evaluating target solution zd ... \n');
 % Define a target control function 
 
 tau = 0.2 ; % smoothing level
-R = 0.4 ; % radius
-D = [1.0 0]; % displacement
+R = 1.2 ; % radius
+D = [0 6.8]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
+
+w_target_bar = extend_with_zero( w_target , MESH ) ;
 
 w = w_target ;
 % Extend the control function to the outer boundary
@@ -233,14 +234,17 @@ w = w_target ;
 wbar = extend_with_zero( w , MESH) ; 
 
 % Visualize w
-if (PLOT_ALL)
-    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w_target ) ; 
-    [X,Y] = meshgrid(-1:0.02:1) ; 
+% if (PLOT_ALL)
     figure
-    surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-    shading interp ; colormap jet ; title('Target control function') ; axis equal ;
-    clear H ; clear X ; clear Y ; 
-end
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',w_target_bar(1:MESH.numVertices),'xystyle','interp',...
+    'zdata',w_target_bar(1:MESH.numVertices),'zstyle','continuous',...
+    'colorbar','on', 'mesh' , 'off' );
+    colormap(jet);
+    lighting phong
+    view([0 90])
+    axis equal
+    drawnow
+% end
 
 % Evaluate rhs 
 F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
@@ -318,16 +322,7 @@ if (PLOT_ALL)
     surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
     shading interp ; colormap jet ; title('Control function') ; axis equal ;
     clear H ; clear X ; clear Y ; 
-
-    % Diffusion coefficient
-    [X,Y] = meshgrid( -2:0.1:2 , -2:0.1:2 ) ; 
-    figure
-    surf( X , Y , DATA.diffusion(X,Y) ) 
-    shading interp
-    colormap jet
-    colorbar
-    title('Diffusion coefficient')
-    clear X; clear Y;
+    
 end
 
 %% Loop 
@@ -430,26 +425,27 @@ for i=1:iterMax
     wbar = extend_with_zero( w , MESH) ;
     
     if (PLOT_ALL)
-    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
-    [X,Y] = meshgrid(-1:0.02:1) ; 
     figure(92)
-    surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-    shading interp ; colormap jet ; title('Ischemia location') ; axis equal ;
-    caxis( [0 1] )
-    colorbar ;
-    clear H ; clear X ; clear Y ; 
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
+    'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
+    'colorbar','on', 'mesh' , 'off' );
+    colormap(jet);
+    lighting phong
+    view([0 90])
+    axis equal
     drawnow
     end    
    
     % Save a snapshot every once in a while ... 
-    if mod( i , 5000 ) == 1 
-        H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
-        [X,Y] = meshgrid(-1:0.02:1) ; 
+    if mod( i , 500 ) == 1 
         figure
-        surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-        shading interp ; colormap jet ; title('Ischemia location') ; axis equal ;
-        clear H ; clear X ; clear Y ; 
-%         caxis( [ 0 1 ] )
+        pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
+            'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
+            'colorbar','on', 'mesh' , 'off' );
+        colormap(jet);
+        lighting phong
+        view([0 90])
+        axis equal
         drawnow 
     end
 
