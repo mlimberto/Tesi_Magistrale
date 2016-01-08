@@ -6,7 +6,7 @@
 
 data.heartLS = @(x,y)( max( abs(x) , abs(y) ) - 1 ) ;
 
-data.M0 = 0.03 ;
+data.M0 = 2.39 ;
 data.Mi = 3.0  ; 
 data.Me = 2.0  ;
 
