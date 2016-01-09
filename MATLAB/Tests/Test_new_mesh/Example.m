@@ -121,6 +121,18 @@ MESH.numInnerElem       = size(MESH.innerElements,2);
 fprintf(' * Number of Nodes           = %d \n',MESH.numNodes);
 fprintf(' * Number of inner Nodes     = %d \n',MESH.numInnerNodes);
 
+
+% Plot some useful stuff
+if (PLOT_ALL)
+   figure
+   subplot(1,2,1)
+   pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem))
+   axis equal   
+   subplot(1,2,2)
+   pdeplot(MESH.vertices,[],MESH.elements(1:3,find(MESH.elements(end,:) == 2 ) ) )
+   axis equal
+end
+
 %% Create and fill the FE_SPACE data structure
 FE_SPACE.fem              = fem;
 FE_SPACE.numDof           = length(MESH.internal_dof);
@@ -236,7 +248,7 @@ wbar = extend_with_zero( w , MESH) ;
 % Visualize w
 % if (PLOT_ALL)
     figure
-    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',w_target_bar(1:MESH.numVertices),'xystyle','interp',...
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem),'xydata',w_target_bar(1:MESH.numVertices),'xystyle','interp',...
     'zdata',w_target_bar(1:MESH.numVertices),'zstyle','continuous',...
     'colorbar','on', 'mesh' , 'off' );
     colormap(jet);
@@ -313,17 +325,6 @@ w0 = zeros(MESH.numInnerNodes , 1);
 w = w0 ;
 wbar = extend_with_zero( w , MESH) ; 
 
-
-if (PLOT_ALL)
-    % control function
-    H = scatteredInterpolant( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , w ) ; 
-    [X,Y] = meshgrid(-1:0.02:1) ; 
-    figure
-    surf(X,Y,H(X,Y) , 'EdgeColor','none','LineStyle','none','FaceLighting','phong')
-    shading interp ; colormap jet ; title('Control function') ; axis equal ;
-    clear H ; clear X ; clear Y ; 
-    
-end
 
 %% Loop 
 
@@ -439,7 +440,7 @@ for i=1:iterMax
     % Save a snapshot every once in a while ... 
     if mod( i , 500 ) == 1 
         figure
-        pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
+        pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
             'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
             'colorbar','on', 'mesh' , 'off' );
         colormap(jet);
@@ -449,15 +450,6 @@ for i=1:iterMax
         drawnow 
     end
 
-%     figure(66)
-%     b = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) ;
-%     plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,zd(b(1,:)) , 'Linewidth',2)
-%     hold on
-%     plot3(MESH.vertices(1,b(1,:)) , MESH.vertices(2,b(1,:)) ,u(b(1,:)) , 'Linewidth',2)
-%     legend('zd','u')
-%     drawnow
-%     hold off
-    
 % Evaluate the error
 
 errorL2 = [ errorL2 ; sqrt(productL2Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
@@ -476,16 +468,4 @@ loglog( dJ_H1 , 'LineWidth' , 2 ) ;
 legend('j','l2','h1')
 grid on 
 % end
-
-if (PLOT_ALL)
-figure
-outer_oundary_index = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) ;
-plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,zd(outer_oundary_index(1,:)) , 'Linewidth',2)
-hold on
-plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,u(outer_oundary_index(1,:)) , 'Linewidth',2)
-legend('zd','u')
-figure
-plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,abs(zd(outer_oundary_index(1,:)) - u(outer_oundary_index(1,:)) ) , 'Linewidth',2)
-legend('u-zd at the boundary')
-end
 
