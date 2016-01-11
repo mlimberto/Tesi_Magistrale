@@ -171,7 +171,12 @@ fprintf('-------------------------------------------\n');
 %% Assemble stiffness matrix
 fprintf('\n Assembling ... ');
 t_assembly = tic;
-A              =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
+A_1              =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
+A_2              =  NonLinear_Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , ...
+                                           [] , [] , FLAG_HEART_REGION ,[] ,w );
+                                       
+A = A_1 + A_2 ;                                      
+ 
 t_assembly = toc(t_assembly);
 fprintf('done in %3.3f s', t_assembly);
 
@@ -205,10 +210,14 @@ fprintf('\n Apply boundary conditions ');
 
 [A_in, F_in, u_D]   =  ApplyBC_2D(A, F_source, FE_SPACE, MESH, DATA);
 
+[A_1_in, F_1_in, u_1_D]   =  ApplyBC_2D(A_1, F_source, FE_SPACE, MESH, DATA);
+
+
 %% Impose zero-mean condition
 A_react = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' ) ; 
 B = A_react * ones( MESH.numNodes , 1 ) ; 
 
+A_total_1 = [ A_1_in , B ; B' , 0 ] ; 
 A_total = [ A_in , B ; B' , 0 ] ; 
 F_total = [ F_in ; 0 ] ; 
 
@@ -218,19 +227,62 @@ t_solve = tic;
 u                         = zeros(MESH.numNodes,1);
 u_total = A_total \ F_total ; 
 u(MESH.internal_dof)      = u_total(1 : end -1 ) ;
-u(MESH.Dirichlet_dof)     = u_D;t_solve = toc(t_solve);
+u(MESH.Dirichlet_dof)     = u_1_D;t_solve = toc(t_solve);
+fprintf('done in %3.3f s \n', t_solve);
+
+fprintf('\n Solve Au = f in the linear case ... ');
+t_solve = tic;
+u1                         = zeros(MESH.numNodes,1);
+u1_total = A_total_1 \ F_total ; 
+u1(MESH.internal_dof)      = u1_total(1 : end -1 ) ;
+u1(MESH.Dirichlet_dof)     = u_D;t_solve = toc(t_solve);
 fprintf('done in %3.3f s \n', t_solve);
 
 %% Visualize solution 
 
 figure
+subplot(1,2,1)
 pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',u(1:MESH.numVertices),'xystyle','interp',...
        'zdata',u(1:MESH.numVertices),'zstyle','continuous',...
        'colorbar','on', 'mesh' , 'off'  );
 colormap(jet);
+title('NL case')
 lighting phong
 % axis equal
 
+subplot(1,2,2)
+pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',u1(1:MESH.numVertices),'xystyle','interp',...
+       'zdata',u1(1:MESH.numVertices),'zstyle','continuous',...
+       'colorbar','on', 'mesh' , 'off'  );
+colormap(jet);
+title('Linear case')
+lighting phong
+% axis equal
 
+d = u - u1 ;
+
+figure
+pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',d(1:MESH.numVertices),'xystyle','interp',...
+       'zdata',d(1:MESH.numVertices),'zstyle','continuous',...
+       'colorbar','on', 'mesh' , 'off'  );
+colormap(jet);
+title('Difference')
+lighting phong
+% axis equal
+
+%% Check the difference at the boundary! 
+
+figure
+outer_oundary_index = MESH.boundaries(1:2 , find( MESH.boundaries(5,: ) ~= 3  ) ) ;
+plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,u(outer_oundary_index(1,:)) , 'Linewidth',2)
+
+hold on 
+plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,u1(outer_oundary_index(1,:)) , 'Linewidth',2)
+
+legend('u non linear','u linear')
+
+% figure
+% plot3(MESH.vertices(1,outer_oundary_index(1,:)) , MESH.vertices(2,outer_oundary_index(1,:)) ,abs(zd(outer_oundary_index(1,:)) - u(outer_oundary_index(1,:)) ) , 'Linewidth',2)
+% legend('u-zd at the boundary')
 
 
