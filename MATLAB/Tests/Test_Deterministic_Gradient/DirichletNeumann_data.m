@@ -10,6 +10,9 @@ data.M0 = 2.39 ;
 data.Mi = 3.0  ; 
 data.Me = 2.0  ;
 
+data.tildeMi = 3.0 ;
+data.tildeMe = 4.0 ;
+
 data.vTr_i = -60 ;  
 data.vTr_e = -90 ;
 

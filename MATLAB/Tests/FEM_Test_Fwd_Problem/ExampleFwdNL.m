@@ -169,16 +169,22 @@ fprintf('-------------------------------------------\n');
 
 
 %% Assemble stiffness matrix
-fprintf('\n Assembling ... ');
+fprintf('\n Assembling constant part ... ');
 t_assembly = tic;
 A_1              =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
-A_2              =  NonLinear_Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , ...
-                                           [] , [] , FLAG_HEART_REGION ,[] ,w );
-                                       
-A = A_1 + A_2 ;                                      
- 
+                                                                        
 t_assembly = toc(t_assembly);
 fprintf('done in %3.3f s', t_assembly);
+
+fprintf('\n Assembling w dependent part ... ');
+t_assembly = tic;
+A_2              =  NonLinear_Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , ...
+                                           [] , [] , FLAG_HEART_REGION ,[] ,w );
+
+t_assembly = toc(t_assembly);
+fprintf('done in %3.3f s', t_assembly);
+                                       
+A = A_1 + A_2 ;                                      
 
 %% Fix shitty bug
 
