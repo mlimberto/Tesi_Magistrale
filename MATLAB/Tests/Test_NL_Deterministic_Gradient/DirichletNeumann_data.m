@@ -1,5 +1,5 @@
 %   This file is part of redbKIT.
-%   Copyright (c) 2015, Ecole Polytechnique Fédérale de Lausanne (EPFL)
+%   Copyright (c) 2015, Ecole Polytechnique F??d??rale de Lausanne (EPFL)
 %   Author: Federico Negri <federico.negri at epfl.ch> 
 
 % Physiological and geometrical parameters
@@ -55,5 +55,21 @@ data.reaction = @(x,y,t,param)(1 + 0.*x.*y); % this is used to impose the zero m
 data.uexact         = @(x,y,t,param)( 0*x.*y );
 data.uxexact        = @(x,y,t,param)( 0*x.*y );
 data.uyexact        = @(x,y,t,param)( 0*x.*y );
+
+% Penalisation coefficient
+data.betaL2 = 0.0 ;
+data.betaGr = 1e-10 ;
+
+% Gradient step 
+data.gstep = 2e-4; 
+
+% Add flags to identify mesh elements (in accordance with .geo file)
+data.FLAG_HEART_REGION = 10 ;
+data.FLAG_TORSO_REGION = 11 ;
+
+data.FLAG_TORSO_BOUNDARY_DIRI = 1 ; 
+data.FLAG_TORSO_BOUNDARY_NEU = 2 ;
+data.FLAG_HEART_BOUNDARY = 3 ;
+
 
 
