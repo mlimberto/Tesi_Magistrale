@@ -340,6 +340,9 @@ wbar = extend_with_zero( w , MESH) ;
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
+error_L2 = [];
+error_H1 = [];
+
 iterMax = 5001 ; 
 
 % Find first search direction d0 
@@ -475,6 +478,9 @@ for i=1:2000
     dJ_L2 = [ dJ_L2 ; sqrt( normgradL2 )  ] ;
     dJ_H1 = [ dJ_H1 ; sqrt( normgradH1 )  ] ;
     
+    error_L2 = [ error_L2 ; sqrt( productL2Heart(w - w_target , w - w_target , MESH , FE_SPACE ) )  ] ;
+    error_H1 = [ error_H1 ; sqrt( productH1Heart(w - w_target , w - w_target , MESH , FE_SPACE ) )  ] ;
+
     % Determine a scalar beta
     
     % Fletcher-Reeves rule
@@ -528,6 +534,18 @@ loglog( dJ_H1 , 'LineWidth' , 2 ) ;
 legend('j','l2','h1')
 grid on 
 % end
+
+% Plot error
+figure
+subplot(1,2,1)
+loglog( error_L2, 'LineWidth' , 2  ) ; 
+legend('L2 error')
+grid on 
+% figure
+subplot(1,2,2)
+loglog( error_H1 , 'LineWidth' , 2 ) ;
+legend('H1 error')
+grid on 
 
 if (PLOT_ALL)
 % This plot has to be fixed
