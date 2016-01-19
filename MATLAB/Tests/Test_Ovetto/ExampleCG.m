@@ -257,7 +257,7 @@ wbar = extend_with_zero( w , MESH) ;
 
 % Visualize w
 % if (PLOT_ALL)
-    figure
+    fig_target = figure ;
     pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem),'xydata',w_target_bar(1:MESH.numVertices),'xystyle','interp',...
     'zdata',w_target_bar(1:MESH.numVertices),'zstyle','continuous',...
     'colorbar','on', 'mesh' , 'off' );
@@ -454,7 +454,7 @@ for i=1:10000
             dw = dw_new ;
             dwbar = extend_with_zero( dw , MESH ) ;
             
-            s_cg = 1e-3;
+            s_cg = 1e-2;
             
             fprintf('\n J = %3.3f \n ',J(end) );
         else
@@ -515,7 +515,7 @@ end
 %% Final visualizations
 
 % Plot solution
-figure
+fig_opt = figure ;
 pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
     'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
     'colorbar','on', 'mesh' , 'off' );
@@ -527,7 +527,7 @@ drawnow
 
 % Display objective function 
 % if (PLOT_ALL)
-figure
+fig_j = figure ;
 loglog( J , 'LineWidth' , 2 ) 
 hold on
 loglog( dJ_L2, 'LineWidth' , 2  ) ; 
@@ -538,6 +538,7 @@ grid on
 
 
 % Plot error
+fig_error = figure ;
 figure
 subplot(1,2,1)
 loglog( error_L2, 'LineWidth' , 2  ) ; 
@@ -599,3 +600,37 @@ pdeplot(MESH.vertices,[],MESH.elements(1:3,find( MESH.elements(end,:) == 2 ) ),'
 view([0 90])
 axis equal
 end
+
+
+%% Export script 
+
+% Change to export folder 
+
+working_dir = pwd ;
+
+cd ~/Dropbox/University/PoliMi/Tesi_Magistrale/Export/Ovetto_Deterministic/Linear_3/
+
+% Save figures
+savefig(fig_target,'w_target');
+print(fig_target,'w_target','-dpng');
+
+savefig(fig_opt,'w_opt');
+print(fig_opt,'w_opt','-dpng');
+
+savefig(fig_j,'J');
+% saveas(fig_j,'J.eps','eps2c');
+
+savefig(fig_error,'error');
+% saveas(fig_error,'error.eps','eps2c');
+
+
+
+
+
+
+
+% Change back to old dir
+
+cd(working_dir)
+
+

@@ -233,14 +233,25 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 1.2 ; % radius
-D = [-3.9 0]; % displacement
+D = [3.9 0]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
 
-w_target_bar = extend_with_zero( w_target , MESH ) ;
+% D = [-3.9 0]; % displacement
+% 
+% w_target2 = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
+% w_target2 = 1 - smoothLS(w_target2 , tau) ;
 
-w = w_target  ;
+w_target_bar = extend_with_zero( w_target , MESH )  ...
+%                 + extend_with_zero( w_target2 , MESH )  ... 
+                ;
+
+w = w_target ...
+%     + w_target2 ...
+    ;
+
+
 % Extend the control function to the outer boundary
 
 wbar = extend_with_zero( w , MESH) ; 
@@ -453,7 +464,7 @@ for i=1:2000
             dw = dw_new ;
             dwbar = extend_with_zero( dw , MESH ) ;
             
-            s_cg = 1e-3;
+            s_cg = 1e-2;
             
             fprintf('\n J = %3.3f \n ',J(end) );
         else
