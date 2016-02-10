@@ -19,6 +19,8 @@ end
 DATA.M0 = param(1) ; 
 DATA.Mi = param(2) ;
 
+DATA.diffusion = @(x,y,t,param)( DATA.M0 + (DATA.Mi + DATA.Me - DATA.M0)*( 1 - smoothLS( DATA.heartLS(x,y) , DATA.tauDiff) ) + 0.*x.*y);
+
 DATA.coeffRhs = -1. * (DATA.vTr_i - DATA.vTr_e )*DATA.Mi ;
 
 % Call the solveFwd function
