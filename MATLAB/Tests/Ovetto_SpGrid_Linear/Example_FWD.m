@@ -232,6 +232,18 @@ plot_grid(S,[],'color','b','marker','o','MarkerFaceColor','b');
 % Reduce grid
 Sr = reduce_sparse_grid( S ) ;
 
+%% Pre-assemble stuff
+
+% Build vector for zero-mean condition
+fprintf('\n Assembling zero-mean vector ... ');
+t_assembly_zeroMean = tic;
+A_react = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' ) ; 
+B = A_react * ones( MESH.numNodes , 1 ) ; 
+t_assembly_zeroMean = toc(t_assembly_zeroMean);
+fprintf('done in %3.3f s\n', t_assembly_zeroMean);
+clear A_react ;
+
+FE_SPACE.B = B ; 
 
 %% Solve forward problem on the nodes
 
@@ -252,7 +264,7 @@ fprintf('\nSolving forward problem on grid nodes in parallel ...\n') ;
 
 t_evaluation = tic ; 
 
-f = @(x) solveFwdHandler( MESH , FE_SPACE , DATA , w , x , [] , [] , [] ) ;
+f = @(x) solveFwdHandler( MESH , FE_SPACE , DATA , w , x , [] , FE_SPACE.B , [] ) ;
 
 U = evaluate_on_sparse_grid( f , Sr , [] , []  ) ; % Serial
 % U = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ; % Parallel
