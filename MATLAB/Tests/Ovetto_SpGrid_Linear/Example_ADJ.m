@@ -267,6 +267,16 @@ Sr = reduce_sparse_grid( S ) ;
 
 %% Pre-assemble stuff
 
+% Assemble rhs matrix for forward problem
+temp = DATA.diffusion ;
+DATA.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
+fprintf('\n Assembling source term matrix ... ');
+t_assembly_source = tic;
+FE_SPACE.A_diffusion_heart          =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
+t_assembly_source = toc(t_assembly_source);
+fprintf('done in %3.3f s\n', t_assembly_source);
+DATA.diffusion = temp ;
+
 % Build vector for zero-mean condition
 fprintf('\n Assembling zero-mean vector ... ');
 t_assembly_zeroMean = tic;
@@ -277,6 +287,18 @@ fprintf('done in %3.3f s\n', t_assembly_zeroMean);
 clear A_react ;
 
 FE_SPACE.B = B ; 
+
+% Assemble lhs matrix for gradient computation
+fprintf('\n Assembling lhs matrix for gradient computation ... ');
+t_assembly_grad = tic;
+% reaction part ( i.e. L2 product )
+A_grad_L2 = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' , [] , [] , DATA.FLAG_HEART_REGION ) ; 
+FE_SPACE.A_reaction_heart = A_grad_L2 ;
+% diffusion part ( i.e. H_0^1 product has already been assembled and it's called A_source_fwd)
+A_grad_H01 = FE_SPACE.A_diffusion_heart ; 
+A_grad = A_grad_L2 + A_grad_H01 ; 
+t_assembly_grad = toc(t_assembly_grad);  fprintf('done in %3.3f s\n', t_assembly_grad);
+
 
 %% Solve forward problem on the nodes
 
@@ -295,7 +317,7 @@ fprintf('\nSolving forward problem on grid nodes in parallel ...\n') ;
 
 t_evaluation = tic ; 
 
-f = @(x) solveFwdAdjHandler( MESH , FE_SPACE , DATA , w , zd , x , [] , FE_SPACE.B , [] ) ;
+f = @(x) solveFwdAdjHandler( MESH , FE_SPACE , DATA , w , zd , x  ) ;
 
 [UP] = evaluate_on_sparse_grid( f , Sr , [] , []  ) ; % Serial
 % [UP] = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ; % Parallel
@@ -303,8 +325,9 @@ f = @(x) solveFwdAdjHandler( MESH , FE_SPACE , DATA , w , zd , x , [] , FE_SPACE
 t_evaluation = toc(t_evaluation);
 fprintf('\nEvaluation done in %3.3f seconds.\n\n' , t_evaluation) ;
 
-U = UP( 1:MESH.numNodes , : ) ;
-P = UP( (MESH.numNodes+1) : end , : ) ;
+F_grad = UP(1:MESH.numNodes , :) ;
+U = UP( (MESH.numNodes+1) : (2*MESH.numNodes) , : ) ;
+P = UP( (2*MESH.numNodes+1) : end , : ) ;
 
 % if check_if_parallel_on()
 %     close_parallel()
@@ -316,6 +339,24 @@ P = UP( (MESH.numNodes+1) : end , : ) ;
 Npl = 3;
 
 V = randsample( 1:size(Sr.knots , 2) , Npl*Npl  ) ;
+
+% Set color limits
+climit = [ min(min( F_grad(: , V ) )) , max(max( F_grad(:,V) ) ) ] ;
+
+figure
+for i = 1:Npl 
+    for j = 1:Npl
+        index = V( (i-1)*Npl + j ) ;
+        subplot( Npl , Npl , (i-1)*Npl + j );
+        pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',U(1:MESH.numVertices , index ),'xystyle','interp',...
+           'zdata',U(1:MESH.numVertices , index),'zstyle','continuous',...
+           'colorbar','on', 'mesh' , 'off'  );
+        colormap(jet); lighting phong;
+        caxis(climit) ;
+        title_str=  sprintf('Potential for M0 = %1.3f , Mi = %3.1f' , Sr.knots(1 ,index) , Sr.knots(2 , index ) ) ;
+        title(title_str);
+    end 
+end
 
 % Set color limits
 climit = [ min(min( U(: , V ) )) , max(max( U(:,V) ) ) ] ;

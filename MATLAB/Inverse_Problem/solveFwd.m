@@ -1,4 +1,4 @@
-function [ u ] = solveFwd( MESH , FE_SPACE , DATA , w , A_lhs , B , A_rhs )
+function [ u ] = solveFwd( MESH , FE_SPACE , DATA , w , A_lhs , B , F_rhs )
 %SOLVEFWD Solves the simplified forward problem using a control function w
 %   solveFwd( MESH , FE_SPACE , DATA , w , A_lhs , B , A_rhs )
 %   The last three arguments are optional : the matrices and vectors
@@ -14,7 +14,7 @@ if nargin< 6 || isempty(B)
     B = A_react * ones( MESH.numNodes , 1 ) ; 
     clear A_react ;
 end
-if nargin< 7 || isempty(A_rhs)
+if nargin< 7 || isempty(F_rhs)
     % Temporary replace the diffusion coefficient 
     temp = DATA.diffusion ;
     DATA.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
@@ -22,13 +22,11 @@ if nargin< 7 || isempty(A_rhs)
     A_rhs         =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
     % Restore original diffusion coefficient
     DATA.diffusion = temp ;
+    % Evaluate rhs 
+    wbar = extend_with_zero( w , MESH ) ; 
+    F_rhs = DATA.coeffRhs * A_rhs * wbar ;   
 end
 
-% Extend control function to outer boundary
-wbar = extend_with_zero( w , MESH ) ; 
-
-% Evaluate rhs 
-F = DATA.coeffRhs * A_rhs * wbar ;
 
 % Apply boundary conditions
 % There is no need to apply boundary conditions for this problem!!
@@ -39,7 +37,7 @@ F = DATA.coeffRhs * A_rhs * wbar ;
 
 % Impose zero-mean condition
 A_total = [ A_lhs , B ; B' , 0 ] ; 
-F_total = [ F ; 0 ] ; 
+F_total = [ F_rhs ; 0 ] ; 
 
 % Solve
 u                         = zeros(MESH.numNodes,1);
