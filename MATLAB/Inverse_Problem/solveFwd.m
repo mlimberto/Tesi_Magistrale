@@ -15,7 +15,13 @@ if nargin< 6 || isempty(B)
     clear A_react ;
 end
 if nargin< 7 || isempty(A_rhs)
+    % Temporary replace the diffusion coefficient 
+    temp = DATA.diffusion ;
+    DATA.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
+    % Assemble matrix
     A_rhs         =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
+    % Restore original diffusion coefficient
+    DATA.diffusion = temp ;
 end
 
 % Extend control function to outer boundary
