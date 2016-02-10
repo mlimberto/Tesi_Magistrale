@@ -36,12 +36,15 @@ A_lhs_fwd         =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
 u = solveFwd( MESH , FE_SPACE , DATA , w , A_lhs_fwd , B , F_rhs_fwd ) ;
 
 % Call the solveAdj function
-p = solveAdj( MESH , FE_SPACE , DATA , w , u , zd , A_lhs_fwd' , B ) ;
+[p , F_adj ] = solveAdj( MESH , FE_SPACE , DATA , w , u , zd , A_lhs_fwd' , B ) ;
 
 % Compute the gradient contribution term
 F_grad = DATA.Mi .* (DATA.vTr_i - DATA.vTr_e ) * FE_SPACE.A_diffusion_heart * p ;
 
+% Evaluate objective function
+J =  eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ;
+
 % Merge the solutions together
-out = [F_grad ; u ; p ] ;
+out = [F_grad ; u ; p ; J ] ;
 
 end

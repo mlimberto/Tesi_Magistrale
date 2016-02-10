@@ -225,19 +225,10 @@ clear w ; clear wbar ;
 
 fprintf('\n Initializing control function ... \n');
 
-tau = 0.2 ; % smoothing level
-R = 1.2 ; % radius
-D = [-3.9 0]; % displacement
+w0 = zeros(MESH.numInnerNodes , 1);
+% w0 = ones(MESH.numInnerNodes , 1);
 
-w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
-w_target = 1 - smoothLS(w_target , tau) ;
-
-w_target_bar = extend_with_zero( w_target , MESH ) ;
-
-w = w_target  ;
-
-% Extend the control function to the outer boundary
-
+w = w0 ;
 wbar = extend_with_zero( w , MESH) ; 
 
 %% Setting up the Stochastic part 
@@ -300,7 +291,7 @@ A_grad = A_grad_L2 + A_grad_H01 ;
 t_assembly_grad = toc(t_assembly_grad);  fprintf('done in %3.3f s\n', t_assembly_grad);
 
 
-%% Solve forward problem on the nodes
+%% Solve forward and adjoint problem on the nodes
 
 % In order to do this we define a function handler that is responsible for
 % calling the appropriate function solveFwd 
@@ -313,83 +304,96 @@ end
 
 min_eval = 10; % minimum number of evaluations required to solve in parallel
 
-fprintf('\nSolving forward problem on grid nodes in parallel ...\n') ;
-
-t_evaluation = tic ; 
-
-f = @(x) solveFwdAdjHandler( MESH , FE_SPACE , DATA , w , zd , x  ) ;
-
-% [UP] = evaluate_on_sparse_grid( f , Sr , [] , []  ) ; % Serial
-[UP] = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ; % Parallel
-
-t_evaluation = toc(t_evaluation);
-fprintf('\nEvaluation done in %3.3f seconds.\n\n' , t_evaluation) ;
-
-F_grad = UP(1:MESH.numNodes , :) ;
-U = UP( (MESH.numNodes+1) : (2*MESH.numNodes) , : ) ;
-P = UP( (2*MESH.numNodes+1) : end , : ) ;
-
 % if check_if_parallel_on()
 %     close_parallel()
 % end
 
+%% Loop 
 
-%% Plot some solutions 
+J = [] ;
 
-Npl = 3;
+dJ_L2 = [] ;
+dJ_H1 = [] ;
 
-V = randsample( 1:size(Sr.knots , 2) , Npl*Npl  ) ;
+iterMax = 1000 ; 
 
-% Set color limits
-climit = [ min(min( F_grad(: , V ) )) , max(max( F_grad(:,V) ) ) ] ;
+errorL2 = [] ;
+errorH1 = [] ;
 
-figure
-for i = 1:Npl 
-    for j = 1:Npl
-        index = V( (i-1)*Npl + j ) ;
-        subplot( Npl , Npl , (i-1)*Npl + j );
-        pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',U(1:MESH.numVertices , index ),'xystyle','interp',...
-           'zdata',U(1:MESH.numVertices , index),'zstyle','continuous',...
-           'colorbar','on', 'mesh' , 'off'  );
-        colormap(jet); lighting phong;
-        caxis(climit) ;
-        title_str=  sprintf('Potential for M0 = %1.3f , Mi = %3.1f' , Sr.knots(1 ,index) , Sr.knots(2 , index ) ) ;
-        title(title_str);
-    end 
-end
+for i=1:iterMax 
+   
+    % Solve forward and adjoint problem    
+    fprintf('\n Solving fwd and adjoint ... ');
+    f = @(x) solveFwdAdjHandler( MESH , FE_SPACE , DATA , w , zd , x  ) ;
+%     [UP] = evaluate_on_sparse_grid( f , Sr , [] , []  ) ; % Serial
+    [UP] = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ; % Parallel
 
-% Set color limits
-climit = [ min(min( U(: , V ) )) , max(max( U(:,V) ) ) ] ;
+    F_grad = UP(1:MESH.numNodes , :) ;
+    U = UP( (MESH.numNodes+1) : (2*MESH.numNodes) , : ) ;
+    P = UP( (2*MESH.numNodes+1) : end -1 , : ) ;
+    
+    % EVALUATE OBJECTIVE FUNCTION
+    J = [ J ; UP(end,:) * Sr.weights' ] ;
+%     J = [ J ; eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ] ;
+    fprintf('\n J = %3.3f \n ',J(end) );
+    
+    
+    % GRADIENT OF W
+    fprintf('\n Solving for the gradient of w ... ');
 
-figure
-for i = 1:Npl 
-    for j = 1:Npl
-        index = V( (i-1)*Npl + j ) ;
-        subplot( Npl , Npl , (i-1)*Npl + j );
-        pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',U(1:MESH.numVertices , index ),'xystyle','interp',...
-           'zdata',U(1:MESH.numVertices , index),'zstyle','continuous',...
-           'colorbar','on', 'mesh' , 'off'  );
-        colormap(jet); lighting phong;
-        caxis(climit) ;
-        title_str=  sprintf('Potential for M0 = %1.3f , Mi = %3.1f' , Sr.knots(1 ,index) , Sr.knots(2 , index ) ) ;
-        title(title_str);
-    end 
-end
+    % Assemble source term
 
-% Set color limits
-climit = [ min(min( P(: , V ) )) , max(max( P(:,V) ) ) ] ;
+    E_F_grad = F_grad * Sr.weights' ;
 
-figure
-for i = 1:Npl 
-    for j = 1:Npl
-        index = V( (i-1)*Npl + j ) ;
-        subplot( Npl , Npl , (i-1)*Npl + j );
-        pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',P(1:MESH.numVertices , index ),'xystyle','interp',...
-           'zdata',P(1:MESH.numVertices , index),'zstyle','continuous',...
-           'colorbar','on', 'mesh' , 'off'  );
-        colormap(jet); lighting phong;
-        caxis(climit) ;
-        title_str=  sprintf(' Adjoint solution for M0 = %1.3f , Mi = %3.1f' , Sr.knots(1 ,index) , Sr.knots(2 , index ) ) ;
-        title(title_str);
-    end 
+    t_solve = tic;
+    dw = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ E_F_grad(MESH.indexInnerNodes) ;
+    t_solve = toc(t_solve); fprintf('done in %3.3f s \n', t_solve); 
+        
+    dwbar = extend_with_zero( dw , MESH ) ; 
+    
+    normgradL2 = sqrt( dwbar' * FE_SPACE.A_reaction_heart * dwbar ) ;
+    normgradH1 = sqrt( dwbar' * FE_SPACE.A_reaction_heart * dwbar ...
+                     + dwbar' * FE_SPACE.A_diffusion_heart * dwbar ) ;
+                 
+    dJ_L2 = [ dJ_L2 ; normgradL2 ] ;
+    dJ_H1 = [ dJ_H1 ; normgradH1 ] ;
+
+    
+    % UPDATE W
+    w_new = w - DATA.gstep *( dw  ) ;
+    % Apply projection step
+    w =  min( 1 , max( 0 , w_new )) ;
+    
+    wbar = extend_with_zero( w , MESH) ;
+    
+    if (PLOT_ALL)
+    figure(92)
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
+    'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
+    'colorbar','on', 'mesh' , 'off' );
+    colormap(jet);
+    lighting phong
+    view([0 90])
+    axis equal
+    drawnow
+    end    
+   
+    % Save a snapshot every once in a while ... 
+%     if mod( i , 5000 ) == 1 
+        figure(74)
+        pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
+            'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
+            'colorbar','on', 'mesh' , 'off' );
+        colormap(jet);
+        lighting phong
+        view([0 90])
+        axis equal
+        drawnow 
+%     end
+
+% Evaluate the error
+
+% errorL2 = [ errorL2 ; sqrt(productL2Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
+% errorH1 = [ errorH1 ; sqrt(productH1Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
+
 end

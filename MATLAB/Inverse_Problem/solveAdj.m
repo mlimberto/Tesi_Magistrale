@@ -1,4 +1,4 @@
-function [ p ] = solveAdj( MESH , FE_SPACE , DATA , w , u , zd, A_lhs , B  )
+function [ p , F_adj ] = solveAdj( MESH , FE_SPACE , DATA , w , u , zd, A_lhs , B  )
 %SOLVAADJ solves the simplified adjoint problem using a control function w 
 %   solveAdj( MESH , FE_SPACE , DATA , w , u , zd , A_lhs , B , A_rhs )
 %   The last three arguments are optional : the matrices and vectors
