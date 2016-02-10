@@ -18,7 +18,7 @@ if nargin< 8 || isempty(B)
 end
 
 % Extend control function to outer boundary
-wbar = extend_with_zero( w , MESH ) ; 
+% wbar = extend_with_zero( w , MESH ) ; 
 
 % Get source term
 F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;

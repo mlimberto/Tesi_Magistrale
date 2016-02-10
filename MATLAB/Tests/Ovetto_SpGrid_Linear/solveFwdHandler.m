@@ -25,6 +25,5 @@ DATA.coeffRhs = -1. * (DATA.vTr_i - DATA.vTr_e )*DATA.Mi ;
 
 % Call the solveFwd function
 u = solveFwd( MESH , FE_SPACE , DATA , w , A_lhs , B , A_rhs ) ;
-% u = param;
 
 end
