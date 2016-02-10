@@ -444,7 +444,7 @@ for i=1:2000
          
         W2 = 1 ; 
         
-        if ( s_cg < 1e-9 ) 
+        if ( s_cg < 1e-7 ) 
            W1 = 1 ; 
            d = -dw_new ; 
            d_old = -dw_new ;
