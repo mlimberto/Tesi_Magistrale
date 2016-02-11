@@ -494,6 +494,11 @@ end
         view([0 90])
         axis equal
         drawnow 
+        
+        
+        figure
+        loglog(J , 'LineWidth',2 ) ; 
+        grid on ;
 
 
 
