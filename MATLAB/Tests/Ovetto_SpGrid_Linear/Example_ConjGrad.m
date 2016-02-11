@@ -399,10 +399,3 @@ for i=1:iterMax
 % errorH1 = [ errorH1 ; sqrt(productH1Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
 
 end
-
-%% Visualize objective function
-
-figure
-loglog(J,'LineWidth',2) ;
-title('Objective function'); xlabel('Iterations');
-grid on 
