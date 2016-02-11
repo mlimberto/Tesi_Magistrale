@@ -293,35 +293,29 @@ t_assembly_grad = toc(t_assembly_grad);  fprintf('done in %3.3f s\n', t_assembly
 
 %% Solve forward and adjoint problem on the nodes
 
-% In order to do this we define a function handler that is responsible for
-% calling the appropriate function solveFwd 
-% The handler is defined in the function solveFwdHandler within this file's
-% directory
-
 if ~check_if_parallel_on()
     activate_parallel() % optional argument to specify how many workers
 end
 
 min_eval = 10; % minimum number of evaluations required to solve in parallel
 
+% To close parallel pool then type the following
 % if check_if_parallel_on()
 %     close_parallel()
 % end
 
-%% Loop 
-
-J = [] ;
+%% Loop initialization
 
 dJ_L2 = [] ;
 dJ_H1 = [] ;
 
-iterMax = 1000 ; 
+error_L2 = [];
+error_H1 = [];
 
-errorL2 = [] ;
-errorH1 = [] ;
+iterMax = 5001 ; 
 
-for i=1:iterMax 
-   
+% Find first search direction d0
+
     % Solve forward and adjoint problem    
     fprintf('\n Solving fwd and adjoint ... ');
     t_solve = tic;
@@ -335,53 +329,162 @@ for i=1:iterMax
     P = UP( (2*MESH.numNodes+1) : end -1 , : ) ;
     
     % EVALUATE OBJECTIVE FUNCTION
-    J = [ J ; UP(end,:) * Sr.weights' ] ;
-%     J = [ J ; eval_ObjFunction(MESH , DATA , FE_SPACE , w , u , zd , -F_adj ) ] ;
+    J_old =  UP(end,:) * Sr.weights'  ;
+    J = [ J_old ] ;
     fprintf('\n J = %3.3f \n ',J(end) );
     
+    % Compute gradient    
     
-    % GRADIENT OF W
-    fprintf('\n Solving for the gradient of w ... ');
-
-    % Assemble source term
-
     E_F_grad = F_grad * Sr.weights' ;
-
-    t_solve = tic;
     dw = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ E_F_grad(MESH.indexInnerNodes) ;
-    t_solve = toc(t_solve); fprintf('done in %3.3f s \n', t_solve); 
+    
+    d = - dw ;
+    dbar = extend_with_zero( d , MESH ) ; 
         
-    dwbar = extend_with_zero( dw , MESH ) ; 
-    
-    normgradL2 = sqrt( dwbar' * FE_SPACE.A_reaction_heart * dwbar ) ;
-    normgradH1 = sqrt( dwbar' * FE_SPACE.A_reaction_heart * dwbar ...
-                     + dwbar' * FE_SPACE.A_diffusion_heart * dwbar ) ;
-                 
-    dJ_L2 = [ dJ_L2 ; normgradL2 ] ;
-    dJ_H1 = [ dJ_H1 ; normgradH1 ] ;
-
-    
-    % UPDATE W
-    w_new = w - DATA.gstep *( dw  ) ;
-    % Apply projection step
-    w =  min( 1 , max( 0 , w_new )) ;
-    
-    wbar = extend_with_zero( w , MESH) ;
-    
-    if (PLOT_ALL)
-    figure(92)
-    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
-    'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
-    'colorbar','on', 'mesh' , 'off' );
-    colormap(jet);
-    lighting phong
-    view([0 90])
-    axis equal
-    drawnow
-    end    
    
-    % Save a snapshot every once in a while ... 
-    if mod( i , 100 ) == 1 
+% Set an initial step length
+s_cg_init = 1e-3;
+s_cg = s_cg_init; 
+   
+% Set Wolfe coefficients 
+sigma1_cg = 1e-7 ; 
+sigma2_cg = 0.4;
+ 
+% Compute first L2 norm of gradient (indeed it's the L2 norm squared)
+normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
+normgradL2_old = 0 ;
+
+normgradH1 = productH1Heart( dw , dw , MESH , FE_SPACE ) ;
+normgradH1_old = 0;
+
+% Initialize d_old
+d_old = d ;
+
+
+
+%% Loop 
+
+for i=1:iterMax
+    
+    % Compute step length
+    ACCEPTABLE = 0 ;
+    
+    while( ~ACCEPTABLE) 
+        % Compute wnew, solve the forward and adjoint problem, evaluate new objective function and new gradient
+        w_new = w + s_cg *( d  ) ;
+        w_new_projected =  min( 1 , max( 0 , w_new )) ;
+        w_new_projected_bar = extend_with_zero( w_new_projected , MESH) ;
+            
+        % Solve forward and adjoint problem    
+        fprintf('\n Solving fwd and adjoint ... ');
+        t_solve = tic;
+        f = @(x) solveFwdAdjHandler( MESH , FE_SPACE , DATA , w_new_projected , zd , x  ) ;
+%     [UP] = evaluate_on_sparse_grid( f , Sr , [] , []  ) ; % Serial
+        [UP] = evaluate_on_sparse_grid( f , Sr , [] , [] , min_eval ) ; % Parallel
+        t_solve = toc(t_solve); fprintf('done in %3.3f s \n', t_solve); 
+
+        F_grad = UP(1:MESH.numNodes , :) ;
+        U = UP( (MESH.numNodes+1) : (2*MESH.numNodes) , : ) ;
+        P = UP( (2*MESH.numNodes+1) : end -1 , : ) ;
+    
+        % EVALUATE OBJECTIVE FUNCTION
+        J_new =   UP(end,:) * Sr.weights'  ;
+%         fprintf('\n J = %3.3f \n ',J(end) );
+    
+        % Compute gradient    
+        E_F_grad = F_grad * Sr.weights' ;
+        dw_new = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ E_F_grad(MESH.indexInnerNodes) ;
+  
+        % Check Armijo's condition (Wolfe condition 1)
+        W1 = J_new <= J_old + sigma1_cg * s_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
+        
+        % Check curvature condition (Wolfe condition 2)
+        W2 = productH1Heart( dw_new , d , MESH , FE_SPACE ) >= ...
+             sigma2_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
+         
+        W2 = 1 ; 
+        
+        if ( s_cg < 1e-9 ) 
+           W1 = 1 ; 
+           d = -dw_new ; 
+           d_old = -dw_new ;
+           disp 'Reinitializing direction'
+        end
+        
+        % If conditions are verified update the solutions
+        % Otherwise, update the gradient step
+        if ( W1 && W2 ) 
+            ACCEPTABLE = 1 ;
+            
+            w = min( 1 , max( 0 , w_new )) ;
+            wbar = extend_with_zero( w , MESH) ;
+            J = [ J ; J_new ] ;
+            J_old = J_new ;
+            dw_old = dw ;
+            dw = dw_new ;
+            dwbar = extend_with_zero( dw , MESH ) ;
+            
+            s_cg = s_cg_init; 
+
+            fprintf('\n J = %3.3f \n ',J(end) );
+        else
+
+            if ~W1
+                s_cg = s_cg / 1.2 ;
+                disp 'Decreasing step'
+            end
+
+            
+        end
+        
+    end
+                
+    % Evaluate L2 and H1 norm of new gradient
+    normgradL2_old = normgradL2 ;
+    normgradL2 = productL2Heart( dw , dw , MESH , FE_SPACE ) ;
+    normgradH1_old = normgradH1 ;
+    normgradH1 = productH1Heart( dw , dw , MESH , FE_SPACE ) ;
+    
+    
+    dJ_L2 = [ dJ_L2 ; sqrt( normgradL2 )  ] ;
+    dJ_H1 = [ dJ_H1 ; sqrt( normgradH1 )  ] ;
+    
+%     error_L2 = [ error_L2 ; sqrt( productL2Heart(w - w_target , w - w_target , MESH , FE_SPACE ) )  ] ;
+%     error_H1 = [ error_H1 ; sqrt( productH1Heart(w - w_target , w - w_target , MESH , FE_SPACE ) )  ] ;
+        
+    % Determine a scalar beta
+    
+    % Fletcher-Reeves rule
+    beta_cg_FR = normgradH1 / normgradH1_old ; 
+    
+    % Polak-Ribiere rule
+    beta_cg_PR = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) / normgradH1 ;  
+    
+    % Hestenes-Stiefel rule
+    if ( i == 1 )
+    beta_cg_HS = beta_cg_PR ;       
+    else
+    beta_cg_HS = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) ...
+               / productH1Heart( d_old , dw - dw_old , MESH , FE_SPACE ) ;    
+    end
+    
+    % Find the new descent direction 
+    d_old = d ;
+    
+    d =  -dw + beta_cg_FR * d ; 
+%     d =  -dw + beta_cg_PR * d ; 
+%     d = -dw + beta_cg_HS * d ;
+
+    % Check termination conditions
+        
+        % Check if d is a descent direction
+        d_dot_dw = productH1Heart( d , dw , MESH , FE_SPACE ) / sqrt(normgradH1) / sqrt( productH1Heart( d , d , MESH , FE_SPACE ) ) ;
+        fprintf('\n cos(angle) = %3.3f \n ',d_dot_dw );
+end
+
+%% Visualisations
+
+        % Optimal control
         figure
         pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem),'xydata',wbar(1:MESH.numVertices),'xystyle','interp',...
             'zdata',wbar(1:MESH.numVertices),'zstyle','continuous',...
@@ -391,11 +494,13 @@ for i=1:iterMax
         view([0 90])
         axis equal
         drawnow 
-    end
 
-% Evaluate the error
 
-% errorL2 = [ errorL2 ; sqrt(productL2Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
-% errorH1 = [ errorH1 ; sqrt(productH1Heart( w - w_target , w - w_target , MESH , FE_SPACE ) ) ] ;
 
-end
+
+
+
+
+
+
+
