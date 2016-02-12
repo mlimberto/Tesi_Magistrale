@@ -206,7 +206,15 @@ wbar = extend_with_zero( w , MESH) ;
     drawnow
 % end
 
-zd = solveFwd( MESH , FE_SPACE , DATA , w  ) ; 
+
+% Change parameters for target solution
+DATA_Zd = DATA ;
+DATA_Zd.M0 = 2.25 ;
+DATA_Zd.Mi = 3.30 ;
+DATA_Zd.diffusion = @(x,y,t,param)( DATA_Zd.M0 + (DATA_Zd.Mi + DATA_Zd.Me - DATA_Zd.M0)*( 1 - smoothLS( DATA_Zd.heartLS(x,y) , DATA_Zd.tauDiff) ) + 0.*x.*y);
+DATA_Zd.coeffRhs = -1. * (DATA_Zd.vTr_i - DATA_Zd.vTr_e )*DATA_Zd.Mi ;
+
+zd = solveFwd( MESH , FE_SPACE , DATA_Zd , w  ) ; 
 
 % Visualize zd
 % if (PLOT_ALL)

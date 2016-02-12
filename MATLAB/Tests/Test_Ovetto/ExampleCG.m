@@ -221,6 +221,12 @@ A_tBp = - DATA.coeffRhs * A_source_fwd ;
 
 fprintf('\nTotal assembling time : %3.3f s\n', t_assembly_fwd + t_assembly_source + t_assembly_zeroMean + t_assembly_grad);
 
+
+% Create A_total matrix
+A_total = [ A_fwd , B ; B' , 0 ] ; 
+
+
+
 %% Target solution
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -268,11 +274,17 @@ wbar = extend_with_zero( w , MESH) ;
     drawnow
 % end
 
+% Change parameters for target solution
+DATA_Zd = DATA ;
+DATA_Zd.M0 = 2.25 ;
+DATA_Zd.Mi = 3.30 ;
+DATA_Zd.diffusion = @(x,y,t,param)( DATA_Zd.M0 + (DATA_Zd.Mi + DATA_Zd.Me - DATA_Zd.M0)*( 1 - smoothLS( DATA_Zd.heartLS(x,y) , DATA_Zd.tauDiff) ) + 0.*x.*y);
+DATA_Zd.coeffRhs = -1. * (DATA_Zd.vTr_i - DATA_Zd.vTr_e )*DATA_Zd.Mi ;
 
 % Solve
 fprintf('\n Solving for zd ... ');
 t_solve = tic ;
-zd = solveFwd( MESH , FE_SPACE , DATA , w  ) ; 
+zd = solveFwd( MESH , FE_SPACE , DATA_Zd , w  ) ; 
 t_solve = toc(t_solve);
 fprintf('done in %3.3f s \n', t_solve);
 
