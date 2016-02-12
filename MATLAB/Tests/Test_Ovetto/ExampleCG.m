@@ -239,7 +239,7 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 1.2 ; % radius
-D = [-3.9 0]; % displacement
+D = [0 6.8]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
@@ -582,36 +582,5 @@ view([0 90])
 axis equal
 end
 
-
-%% Export script 
-
-% Change to export folder 
-
-working_dir = pwd ;
-
-cd ~/Dropbox/University/PoliMi/Tesi_Magistrale/Export/Ovetto_Deterministic/Linear_3/
-
-% Save figures
-savefig(fig_target,'w_target');
-print(fig_target,'w_target','-dpng');
-
-savefig(fig_opt,'w_opt');
-print(fig_opt,'w_opt','-dpng');
-
-savefig(fig_j,'J');
-% saveas(fig_j,'J.eps','eps2c');
-
-savefig(fig_error,'error');
-% saveas(fig_error,'error.eps','eps2c');
-
-
-
-
-
-
-
-% Change back to old dir
-
-cd(working_dir)
 
 
