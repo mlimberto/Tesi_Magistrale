@@ -392,27 +392,23 @@ for i=1:10000
         % Compute wnew, solve the forward and adjoint problem, evaluate new objective function and new gradient
         w_new = w + s_cg *( d  ) ;
         w_new_projected =  min( 1 , max( 0 , w_new )) ;
-        w_new_projected_bar = extend_with_zero( w_new_projected , MESH) ;
             
-        F_fwd = DATA.coeffRhs * A_source_fwd * w_new_projected_bar ;
-        [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
-        u = zeros(MESH.numNodes , 1) ;
-        u_total = A_total \ [ F_in ; 0 ] ; 
-        u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
+        % FWD
+        F_fwd = DATA.coeffRhs * A_source_fwd * extend_with_zero( w_new_projected , MESH) ;
+        u = solveFwd( MESH , FE_SPACE , DATA , w , A_fwd , FE_SPACE.B , F_fwd ) ;
+        
+        % ADJ
+        [ p , F_adj ] = solveAdj( MESH , FE_SPACE , DATA , w_new_projected , u , zd, A_fwd' , FE_SPACE.B  );
 
-        F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
-        p = zeros(MESH.numNodes , 1);
-        p_total = A_total' \ [ F_adj ; 0 ] ;
-        p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
-
+        % Evaluate new J 
+        J_new = eval_ObjFunction(MESH , DATA , FE_SPACE , w_new_projected , u , zd , -F_adj ) ;
+        
+        % GRADIENT
         F_grad = A_tBp * p ...
                + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
                + DATA.betaGr * FE_SPACE.A_diffusion_heart * wbar ;
-  
         dw_new = A_grad( MESH.indexInnerNodes , MESH.indexInnerNodes ) \ F_grad(MESH.indexInnerNodes) ;
         
-        % Evaluate new J 
-        J_new = eval_ObjFunction(MESH , DATA , FE_SPACE , w_new_projected , u , zd , -F_adj ) ;
         
         % Check Armijo's condition (Wolfe condition 1)
         W1 = J_new <= J_old + sigma1_cg * s_cg * productH1Heart( dw , d , MESH , FE_SPACE ) ;
@@ -472,13 +468,10 @@ for i=1:10000
     error_H1 = [ error_H1 ; sqrt( productH1Heart(w - w_target , w - w_target , MESH , FE_SPACE ) )  ] ;
         
     % Determine a scalar beta
-    
     % Fletcher-Reeves rule
     beta_cg_FR = normgradH1 / normgradH1_old ; 
-    
     % Polak-Ribiere rule
     beta_cg_PR = productH1Heart( dw , dw - dw_old , MESH , FE_SPACE ) / normgradH1 ;  
-    
     % Hestenes-Stiefel rule
     if ( i == 1 )
     beta_cg_HS = beta_cg_PR ;       
@@ -494,8 +487,8 @@ for i=1:10000
 %     d =  -dw + beta_cg_PR * d ; 
 %     d = -dw + beta_cg_HS * d ;
 
-    % Check termination conditions
-        
+    % Check termination conditions     
+    
         % Check if d is a descent direction
         d_dot_dw = productH1Heart( d , dw , MESH , FE_SPACE ) / sqrt(normgradH1) / sqrt( productH1Heart( d , d , MESH , FE_SPACE ) ) ;
         fprintf('\n cos(angle) = %3.3f \n ',d_dot_dw );
@@ -527,7 +520,6 @@ grid on
 
 
 % Plot error
-fig_error = figure ;
 figure
 subplot(1,2,1)
 loglog( error_L2, 'LineWidth' , 2  ) ; 
