@@ -171,7 +171,7 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 1.2 ; % radius
-D = [0 +6.8]; % displacement
+D = [-3.9 0]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
@@ -241,7 +241,7 @@ wbar = extend_with_zero( w , MESH) ;
 
 N = 2 ; 
 knotsM0 = @(n) knots_CC( n , 2.30 , 2.50 , 'prob' ) ; 
-knotsMi = @(n) knots_CC( n , 2.90  , 3.10  , 'prob' ) ; 
+knotsMi = @(n) knots_CC( n , 2.90 , 3.10  , 'prob' ) ; 
 
 level = 3 ; %level 
 
@@ -494,8 +494,7 @@ end
         view([0 90])
         axis equal
         drawnow 
-        
-        
+                
         figure
         loglog(J , 'LineWidth',2 ) ; 
         grid on ;
