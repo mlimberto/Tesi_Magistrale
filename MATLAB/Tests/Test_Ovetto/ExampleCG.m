@@ -233,7 +233,7 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 1.2 ; % radius
-D = [+3.9 0]; % displacement
+D = [-3.9 0]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
@@ -372,8 +372,9 @@ iterMax = 5001 ;
         
    
 % Set an initial step length
-s_cg = 1e-2; 
-   
+s_cg_init = 1e-3;
+s_cg = s_cg_init; 
+
 % Set Wolfe coefficients 
 sigma1_cg = 1e-7 ; 
 sigma2_cg = 0.4;
@@ -454,7 +455,7 @@ for i=1:10000
             dw = dw_new ;
             dwbar = extend_with_zero( dw , MESH ) ;
             
-            s_cg = 1e-2;
+            s_cg = s_cg_init;
             
             fprintf('\n J = %3.3f \n ',J(end) );
         else

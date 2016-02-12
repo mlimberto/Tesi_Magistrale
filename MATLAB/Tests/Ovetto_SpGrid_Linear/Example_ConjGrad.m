@@ -240,8 +240,8 @@ wbar = extend_with_zero( w , MESH) ;
 % Mi uniformly sampled between 2.9 and 3.1
 
 N = 2 ; 
-knotsM0 = @(n) knots_CC( n , 2.30 , 2.50 , 'prob' ) ; 
-knotsMi = @(n) knots_CC( n , 2.90 , 3.10  , 'prob' ) ; 
+knotsM0 = @(n) knots_CC( n , 2.1 , 2.7 , 'prob' ) ; 
+knotsMi = @(n) knots_CC( n , 2.5 , 3.5  , 'prob' ) ; 
 
 level = 3 ; %level 
 
