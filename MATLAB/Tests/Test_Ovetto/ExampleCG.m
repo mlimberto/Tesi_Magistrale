@@ -268,37 +268,13 @@ wbar = extend_with_zero( w , MESH) ;
     drawnow
 % end
 
-% Evaluate rhs 
-F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
-
-if (PLOT_ALL)
-% Visualize rhs term 
-    figure
-    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',F_fwd(1:MESH.numVertices),'xystyle','interp',...
-        'zdata',F_fwd(1:MESH.numVertices),'zstyle','continuous',...
-        'colorbar','on', 'mesh' , 'off' );
-    colormap(jet);
-    lighting phong
-    title('Source term')
-end
-
-% Apply boundary conditions
-fprintf('\n Apply boundary conditions ');
-[A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
-
-% Impose zero-mean condition
-A_total = [ A_in , B ; B' , 0 ] ; 
-F_total = [ F_in ; 0 ] ; 
 
 % Solve
 fprintf('\n Solving for zd ... ');
-t_solve = tic;
-zd                         = zeros(MESH.numNodes,1);
-zd_total = A_total \ F_total ; 
-zd(MESH.internal_dof)      = zd_total(1 : end -1 ) ;
-zd(MESH.Dirichlet_dof)     = u_D;t_solve = toc(t_solve);
+t_solve = tic ;
+zd = solveFwd( MESH , FE_SPACE , DATA , w  ) ; 
+t_solve = toc(t_solve);
 fprintf('done in %3.3f s \n', t_solve);
-clear zd_total;
 
 if (PLOT_ALL)
     figure
