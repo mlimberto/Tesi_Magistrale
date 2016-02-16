@@ -209,7 +209,7 @@ wbar = extend_with_zero( w , MESH) ;
 
 % Change parameters for target solution
 DATA_Zd = DATA ;
-DATA_Zd.M0 = 2.25 ;
+DATA_Zd.M0 = 2.6 ;
 DATA_Zd.Mi = 3.30 ;
 DATA_Zd.diffusion = @(x,y,t,param)( DATA_Zd.M0 + (DATA_Zd.Mi + DATA_Zd.Me - DATA_Zd.M0)*( 1 - smoothLS( DATA_Zd.heartLS(x,y) , DATA_Zd.tauDiff) ) + 0.*x.*y);
 DATA_Zd.coeffRhs = -1. * (DATA_Zd.vTr_i - DATA_Zd.vTr_e )*DATA_Zd.Mi ;
@@ -251,7 +251,7 @@ N = 2 ;
 knotsM0 = @(n) knots_CC( n , 2.1 , 2.7 , 'prob' ) ; 
 knotsMi = @(n) knots_CC( n , 2.5 , 3.5  , 'prob' ) ; 
 
-level = 3 ; %level 
+level = 5 ; %level 
 
 [ lev2knots , idxset ] = define_functions_for_rule( 'SM' , N ) ;
 
@@ -506,6 +506,11 @@ end
         figure
         loglog(J , 'LineWidth',2 ) ; 
         grid on ;
+        hold on 
+        loglog( dJ_L2, 'LineWidth' , 2  ) ; 
+        loglog( dJ_H1 , 'LineWidth' , 2 ) ;
+        legend('j','l2','h1')
+        
 
 
 

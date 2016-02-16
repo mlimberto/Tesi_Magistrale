@@ -239,7 +239,7 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 1.2 ; % radius
-D = [0 6.8]; % displacement
+D = [-3.9 0]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
@@ -276,7 +276,7 @@ wbar = extend_with_zero( w , MESH) ;
 
 % Change parameters for target solution
 DATA_Zd = DATA ;
-DATA_Zd.M0 = 2.25 ;
+DATA_Zd.M0 = 2.6 ;
 DATA_Zd.Mi = 3.30 ;
 DATA_Zd.diffusion = @(x,y,t,param)( DATA_Zd.M0 + (DATA_Zd.Mi + DATA_Zd.Me - DATA_Zd.M0)*( 1 - smoothLS( DATA_Zd.heartLS(x,y) , DATA_Zd.tauDiff) ) + 0.*x.*y);
 DATA_Zd.coeffRhs = -1. * (DATA_Zd.vTr_i - DATA_Zd.vTr_e )*DATA_Zd.Mi ;
