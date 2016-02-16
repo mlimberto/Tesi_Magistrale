@@ -59,7 +59,7 @@ for j = 1 : FE_SPACE.numElemDof
     mu = mu + wbar(i)*FE_SPACE.phi(j,:);
 end
 
-mu = (DATA.tildeMi + DATA.tildeMe - DATA.Mi - DATA.Me ).*mu ;
+mu = ( + DATA.tildeMe - DATA.Me ).*mu ;
 
 %% Evaluation of the other coefficients in the quadrature nodes
 si  = DATA.reaction(x,y,t,DATA.param);
