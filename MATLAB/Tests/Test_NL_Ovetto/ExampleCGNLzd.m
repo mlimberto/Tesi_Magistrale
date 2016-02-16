@@ -277,7 +277,9 @@ if (PLOT_ALL)
     title('Source term')
 end
 
-zd = solveFwdNL( MESH , FE_SPACE , DATA , w ) ;
+
+F_fwd = DATA.coeffRhs * A_source_fwd * extend_with_zero(w,MESH) ;
+zd = solveFwdNL( MESH , FE_SPACE , DATA , w , [] , B , F_fwd ) ;
 
 
 if (PLOT_ALL)
