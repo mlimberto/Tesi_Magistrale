@@ -331,18 +331,11 @@ iterMax = 5001 ;
 % Find first search direction d0 
     % Solve fwd
     F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
-    [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
-    A_total = [ A_in , B ; B' , 0 ] ; 
-    u = zeros(MESH.numNodes , 1) ;
-    u_total = A_total \ [ F_in ; 0 ] ; 
-    u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
-
-    % Solve adj
-    F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
-    p = zeros(MESH.numNodes , 1);
-    p_total = A_total' \ [ F_adj ; 0 ] ;
-    p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
-
+    
+    u = solveFwd( MESH , FE_SPACE , DATA , w , A_fwd , FE_SPACE.B , F_fwd ) ;
+    
+    [ p , F_adj ] = solveAdj( MESH , FE_SPACE , DATA , w , u , zd, A_fwd' , FE_SPACE.B  ) ;
+    
     % Find gradient of J and set first descent direction as -grad(J)
     F_grad = A_tBp * p ...
           + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
@@ -389,16 +382,10 @@ for i=1:2000
         w_new_projected_bar = extend_with_zero( w_new_projected , MESH) ;
             
         F_fwd = DATA.coeffRhs * A_source_fwd * w_new_projected_bar ;
-        [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
-        u = zeros(MESH.numNodes , 1) ;
-        A_total = [ A_in , B ; B' , 0 ] ; 
-        u_total = A_total \ [ F_in ; 0 ] ; 
-        u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
+        u = solveFwd( MESH , FE_SPACE , DATA , w_new_projected , A_fwd , FE_SPACE.B , F_fwd ) ;
+    
+        [ p , F_adj ] = solveAdj( MESH , FE_SPACE , DATA , w_new_projected , u , zd, A_fwd' , FE_SPACE.B  ) ;
 
-        F_adj = Apply_AdjBC( FE_SPACE , MESH , zd - u ) ;
-        p = zeros(MESH.numNodes , 1);
-        p_total = A_total' \ [ F_adj ; 0 ] ;
-        p(MESH.internal_dof) = p_total(1: end -1) ;   clear p_total;
 
         F_grad = A_tBp * p ...
                + DATA.betaL2 * FE_SPACE.A_reaction_heart * wbar ...
