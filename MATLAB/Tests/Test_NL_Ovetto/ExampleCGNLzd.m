@@ -245,18 +245,13 @@ w_target = 1 - smoothLS(w_target , tau) ;
 % w_target2 = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 % w_target2 = 1 - smoothLS(w_target2 , tau) ;
 
-w_target_bar = extend_with_zero( w_target , MESH )  ...
+w_target_bar = extend_with_zero( w_target , MESH )  ... 
 %                 + extend_with_zero( w_target2 , MESH )  ... 
                 ;
 
 w = w_target ...
 %     + w_target2 ...
     ;
-
-
-% Extend the control function to the outer boundary
-
-wbar = extend_with_zero( w , MESH) ; 
 
 % Visualize w
 % if (PLOT_ALL)
@@ -271,9 +266,6 @@ wbar = extend_with_zero( w , MESH) ;
     drawnow
 % end
 
-% Evaluate rhs 
-F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
-
 if (PLOT_ALL)
 % Visualize rhs term 
     figure
@@ -285,32 +277,8 @@ if (PLOT_ALL)
     title('Source term')
 end
 
+zd = solveFwdNL( MESH , FE_SPACE , DATA , w ) ;
 
-% Assemble non-constant part of the matrix 
-fprintf('\n Assembling w dependent part ... ');
-t_assembly = tic;
-A_wdep              =  NonLinear_Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , ...
-                                           [] , [] , DATA.FLAG_HEART_REGION ,[] ,w );
-t_assembly = toc(t_assembly);
-fprintf('done in %3.3f s', t_assembly);
-
-% Apply boundary conditions
-fprintf('\n Apply boundary conditions ');
-[A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd + A_wdep, F_fwd, FE_SPACE, MESH, DATA);
-
-% Impose zero-mean condition
-A_total = [ A_in , B ; B' , 0 ] ; 
-F_total = [ F_in ; 0 ] ; 
-
-% Solve
-fprintf('\n Solving for zd ... ');
-t_solve = tic;
-zd                         = zeros(MESH.numNodes,1);
-zd_total = A_total \ F_total ; 
-zd(MESH.internal_dof)      = zd_total(1 : end -1 ) ;
-zd(MESH.Dirichlet_dof)     = u_D;t_solve = toc(t_solve);
-fprintf('done in %3.3f s \n', t_solve);
-clear zd_total;
 
 if (PLOT_ALL)
     figure
@@ -362,6 +330,7 @@ iterMax = 5001 ;
     % Solve fwd
     F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
     [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
+    A_total = [ A_in , B ; B' , 0 ] ; 
     u = zeros(MESH.numNodes , 1) ;
     u_total = A_total \ [ F_in ; 0 ] ; 
     u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
