@@ -179,15 +179,17 @@ FE_SPACE.A_diffusion_total = A_fwd ;
 
 % Fix diffusion coefficient!!! 
 
-DATA.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
+DATA_temp = DATA ;
+DATA_temp.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
 
 % Assemble rhs matrix for forward problem
 fprintf('\n Assembling source term matrix ... ');
 t_assembly_source = tic;
-A_source_fwd          =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
+A_source_fwd          =  Assembler_2D(MESH, DATA_temp, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
 t_assembly_source = toc(t_assembly_source);
 fprintf('done in %3.3f s\n', t_assembly_source);
 
+clear DATA_temp ;
 FE_SPACE.A_diffusion_heart = A_source_fwd ;
 
 % Build vector for zero-mean condition
