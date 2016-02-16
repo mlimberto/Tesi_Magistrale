@@ -233,7 +233,7 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 1.2 ; % radius
-D = [3.9 0]; % displacement
+D = [-3.9 0]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
@@ -418,6 +418,7 @@ for i=1:2000
         F_fwd = DATA.coeffRhs * A_source_fwd * w_new_projected_bar ;
         [A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd, F_fwd, FE_SPACE, MESH, DATA);
         u = zeros(MESH.numNodes , 1) ;
+        A_total = [ A_in , B ; B' , 0 ] ; 
         u_total = A_total \ [ F_in ; 0 ] ; 
         u(MESH.internal_dof) = u_total( 1 : end -1  ) ;    clear u_total; 
 
