@@ -1,0 +1,8 @@
+%% plot colorbar 
+
+f = figure;
+f.Position(4) = 620 ;
+h = colorbar ;
+axis off 
+set(h,'fontsize',18)
+colormap jet
