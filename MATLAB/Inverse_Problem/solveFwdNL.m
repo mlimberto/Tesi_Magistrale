@@ -12,6 +12,9 @@ if nargin< 5 || isempty(A_lhs)
     % w-dependent part of the matrix
     A_wdep              =  NonLinear_Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , ...
                                            [] , [] , DATA.FLAG_HEART_REGION ,[] ,w );
+
+    A_lhs = A_lhs + A_wdep ;                                   
+    
 end
 if nargin< 6 || isempty(B)
     A_react = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' ) ; 
@@ -40,7 +43,7 @@ end
 
 
 % Impose zero-mean condition
-A_total = [ A_lhs + A_wdep , B ; B' , 0 ] ; 
+A_total = [ A_lhs  , B ; B' , 0 ] ; 
 F_total = [ F_rhs ; 0 ] ; 
 
 % Solve
