@@ -233,7 +233,7 @@ fprintf('\n Evaluating target solution zd ... \n');
 
 tau = 0.2 ; % smoothing level
 R = 1.2 ; % radius
-D = [+3.9 0]; % displacement
+D = [-3.9 0]; % displacement
 
 w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 w_target = 1 - smoothLS(w_target , tau) ;
@@ -243,13 +243,9 @@ w_target = 1 - smoothLS(w_target , tau) ;
 % w_target2 = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
 % w_target2 = 1 - smoothLS(w_target2 , tau) ;
 
-w_target_bar = extend_with_zero( w_target , MESH )  ...
-%                 + extend_with_zero( w_target2 , MESH )  ... 
-                ;
+w_target_bar = extend_with_zero( w_target , MESH )  ;
 
-w = w_target ...
-%     + w_target2 ...
-    ;
+w = w_target ;
 
 % Extend the control function to the outer boundary
 
@@ -268,8 +264,20 @@ wbar = extend_with_zero( w , MESH) ;
     drawnow
 % end
 
-% Evaluate rhs 
-F_fwd = DATA.coeffRhs * A_source_fwd * wbar ;
+
+% Change parameters for target solution
+DATA_Zd = DATA ;
+DATA_Zd.M0 = 2.39 ;
+DATA_Zd.Mi = 3.0 ;
+DATA_Zd.diffusion = @(x,y,t,param)( DATA_Zd.M0 + (DATA_Zd.Mi + DATA_Zd.Me - DATA_Zd.M0)*( 1 - smoothLS( DATA_Zd.heartLS(x,y) , DATA_Zd.tauDiff) ) + 0.*x.*y);
+DATA_Zd.coeffRhs = -1. * (DATA_Zd.vTr_i - DATA_Zd.vTr_e )*DATA_Zd.Mi ;
+
+% Solve
+fprintf('\n Solving for zd ... ');
+t_solve = tic ;
+zd = solveFwdNL( MESH , FE_SPACE , DATA_Zd , w  ) ; 
+t_solve = toc(t_solve);
+fprintf('done in %3.3f s \n', t_solve);
 
 if (PLOT_ALL)
 % Visualize rhs term 
@@ -281,33 +289,6 @@ if (PLOT_ALL)
     lighting phong
     title('Source term')
 end
-
-
-% Assemble non-constant part of the matrix 
-fprintf('\n Assembling w dependent part ... ');
-t_assembly = tic;
-A_wdep              =  NonLinear_Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , ...
-                                           [] , [] , DATA.FLAG_HEART_REGION ,[] ,w );
-t_assembly = toc(t_assembly);
-fprintf('done in %3.3f s', t_assembly);
-
-% Apply boundary conditions
-fprintf('\n Apply boundary conditions ');
-[A_in, F_in, u_D]   =  ApplyBC_2D(A_fwd + A_wdep, F_fwd, FE_SPACE, MESH, DATA);
-
-% Impose zero-mean condition
-A_total = [ A_in , B ; B' , 0 ] ; 
-F_total = [ F_in ; 0 ] ; 
-
-% Solve
-fprintf('\n Solving for zd ... ');
-t_solve = tic;
-zd                         = zeros(MESH.numNodes,1);
-zd_total = A_total \ F_total ; 
-zd(MESH.internal_dof)      = zd_total(1 : end -1 ) ;
-zd(MESH.Dirichlet_dof)     = u_D;t_solve = toc(t_solve);
-fprintf('done in %3.3f s \n', t_solve);
-clear zd_total;
 
 if (PLOT_ALL)
     figure
