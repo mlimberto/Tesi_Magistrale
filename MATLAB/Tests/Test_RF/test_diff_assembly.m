@@ -179,7 +179,7 @@ N = 200 ; % number of KL bases
 NS = 1 ; % number of samples
 F = repmat(KL.mean,1,NS) + KL.bases*diag(KL.sv)*randn(N,NS) ;
 
-if (PLOT_ALL)
+% if (PLOT_ALL)
    figure
    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',F(1:MESH.numVertices),'xystyle','interp',...
         'zdata',F(1:MESH.numVertices),'zstyle','continuous',...
@@ -187,17 +187,132 @@ if (PLOT_ALL)
    colormap(jet); lighting phong; title('Realization of the random field')
    view([0 90])
    axis equal
-end
+% end
 
 % UTILE INSERIRE INDEX OUTER ELEMENTS??
 
 %% Assembla una matrice di diffusione utilizzando il coefficiente F
 
 % Example call : A = Assembler_2D_RF(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , FLAG_HEART_REGION, [] , F )
-A = NonLinear_Assembler_2D_RF( MESH , DATA , FE_SPACE  , 'diffusion' , [] , [] , []  , [] ,F ) ;
+A_rf = NonLinear_Assembler_2D_RF( MESH , DATA , FE_SPACE  , 'diffusion' , [] , [] , []  , [] ,F ) ;
+
+%% Other Matrix assembly
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Part 2 : Matrix assembly
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Assemble stiffness matrix for forward problem
+fprintf('\n Assembling state matrix ... ');
+t_assembly_fwd = tic;
+A_fwd              =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion');
+t_assembly_fwd = toc(t_assembly_fwd);
+fprintf('done in %3.3f s\n', t_assembly_fwd);
+
+FE_SPACE.A_diffusion_total = A_fwd ;
+
+% Fix diffusion coefficient!!! 
+
+DATA.diffusion = @(x,y,t,param) 1 + 0*x.*y ;
+
+% Assemble rhs matrix for forward problem
+fprintf('\n Assembling source term matrix ... ');
+t_assembly_source = tic;
+A_source_fwd          =  Assembler_2D(MESH, DATA, FE_SPACE , 'diffusion' , [] , [] , DATA.FLAG_HEART_REGION );
+t_assembly_source = toc(t_assembly_source);
+fprintf('done in %3.3f s\n', t_assembly_source);
+
+FE_SPACE.A_diffusion_heart = A_source_fwd ;
+
+% Build vector for zero-mean condition
+fprintf('\n Assembling zero-mean vector ... ');
+t_assembly_zeroMean = tic;
+A_react = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' ) ; 
+B = A_react * ones( MESH.numNodes , 1 ) ; 
+t_assembly_zeroMean = toc(t_assembly_zeroMean);
+fprintf('done in %3.3f s\n', t_assembly_zeroMean);
+clear A_react ;
+
+FE_SPACE.B = B ; 
+
+% Assemble lhs matrix for gradient computation
+fprintf('\n Assembling lhs matrix for gradient computation ... ');
+t_assembly_grad = tic;
+% reaction part ( i.e. L2 product )
+A_grad_L2 = Assembler_2D( MESH , DATA , FE_SPACE , 'reaction' , [] , [] , DATA.FLAG_HEART_REGION ) ; 
+% diffusion part ( i.e. H_0^1 product has already been assembled and it's called A_source_fwd)
+A_grad_H01 = A_source_fwd ; 
+A_grad = A_grad_L2 + A_grad_H01 ; 
+t_assembly_grad = toc(t_assembly_grad);  fprintf('done in %3.3f s\n', t_assembly_grad);
+% clear A_grad_H01 ; clear A_grad_L2 ;
+
+FE_SPACE.A_reaction_heart = A_grad_L2 ;
+
+% Assemble rhs gradient matrix
+    % We wish to assemble the matrix evaluating the source term B' * p 
+    % We can obtain it again from the A_source_fwd matrix
+A_tBp = - DATA.coeffRhs * A_source_fwd ; 
+
+fprintf('\nTotal assembling time : %3.3f s\n', t_assembly_fwd + t_assembly_source + t_assembly_zeroMean + t_assembly_grad);
+
+%% Target solution
+
+fprintf('\n Evaluating target solution zd ... \n');
+
+% Define a target control function 
+
+tau = 0.2 ; % smoothing level
+R = 1.2 ; % radius
+D = [-3.9 0]; % displacement
+
+w_target = circularLS( MESH.innerNodes(1,:)' , MESH.innerNodes(2,:)' , R , D ) ;
+w_target = 1 - smoothLS(w_target , tau) ;
+
+w_target_bar = extend_with_zero( w_target , MESH )  ;
+
+w = w_target ;
+
+% Extend the control function to the outer boundary
+
+wbar = extend_with_zero( w , MESH) ; 
+
+% Visualize w
+% if (PLOT_ALL)
+    figure
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,MESH.indexInnerElem),'xydata',w_target_bar(1:MESH.numVertices),'xystyle','interp',...
+    'zdata',w_target_bar(1:MESH.numVertices),'zstyle','continuous',...
+    'colorbar','on', 'mesh' , 'off' );
+    colormap(jet);
+    lighting phong
+    view([0 90])
+    axis equal
+    drawnow
+% end
 
 
+% Change parameters for target solution
+DATA_Zd = DATA ;
+% DATA_Zd.M0 = 2.6 ;
+% DATA_Zd.Mi = 3.3 ;
+% DATA_Zd.diffusion = @(x,y,t,param)( DATA_Zd.M0 + (DATA_Zd.Mi + DATA_Zd.Me - DATA_Zd.M0)*( 1 - smoothLS( DATA_Zd.heartLS(x,y) , DATA_Zd.tauDiff) ) + 0.*x.*y);
+% DATA_Zd.coeffRhs = -1. * (DATA_Zd.vTr_i - DATA_Zd.vTr_e )*DATA_Zd.Mi ;
 
+% Solve
+fprintf('\n Solving for zd ... ');
+t_solve = tic ;
+zd = solveFwdNL( MESH , FE_SPACE , DATA_Zd , w , A_fwd + A_rf , B  ) ; 
+t_solve = toc(t_solve);
+fprintf('done in %3.3f s \n', t_solve);
+
+% if (PLOT_ALL)
+    figure
+    pdeplot(MESH.vertices,[],MESH.elements(1:3,:),'xydata',zd(1:MESH.numVertices),'xystyle','interp',...
+       'zdata',zd(1:MESH.numVertices),'zstyle','continuous',...
+       'colorbar','on', 'mesh' , 'off'  );
+    colormap(jet); lighting phong; 
+%     title('Target solution z_d')
+%     axis equal
+% end
 
 
 
