@@ -167,11 +167,11 @@ corr.name = 'gauss';
 corr.c0 = [ 10 10] ; 
 
 % corr.sigma = cos(pi*MESH.nodes(1,:)').*sin(2*pi*MESH.nodes(2,:)')+1.5;
-corr.sigma = repmat(3.0 , size(MESH.nodes,2) ,1 );
+corr.sigma = repmat(1.0 , size(MESH.nodes,2) ,1 );
 
 %% Generate RF expansion 
 
-N = 200 ; % number of KL bases
+N = 10 ; % number of KL bases
 
 [F,KL] = randomfield(corr,MESH.nodes','trunc', N);
 
